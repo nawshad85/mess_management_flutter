@@ -1,0 +1,37 @@
+name: mess_manager
+description: "Mess Manager - A student mess management app"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # Firebase
+  firebase_core: ^3.12.1
+  firebase_auth: ^5.5.2
+  cloud_firestore: ^5.6.6
+  firebase_storage: ^12.4.5
+
+  # State Management
+  get: ^4.7.2
+
+  # Utilities
+  image_picker: ^1.1.2
+  file_picker: ^9.2.1
+  intl: ^0.20.2
+  cached_network_image: ^3.4.1
+  uuid: ^4.5.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
