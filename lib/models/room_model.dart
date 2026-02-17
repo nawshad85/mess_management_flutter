@@ -72,4 +72,29 @@ class RoomModel {
   }
 
   bool get isFull => memberIds.length >= capacity;
+
+  bool get isBazarCurrentlyActive {
+    if (!isActiveBazar || bazarStartDate == null || bazarEndDate == null) {
+      return false;
+    }
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final start = DateTime(
+      bazarStartDate!.year,
+      bazarStartDate!.month,
+      bazarStartDate!.day,
+    );
+    final end =
+        DateTime(
+              bazarEndDate!.year,
+              bazarEndDate!.month,
+              bazarEndDate!.day,
+            ) // Include the full end day
+            .add(const Duration(days: 1))
+            .subtract(const Duration(milliseconds: 1));
+
+    return today.isAtSameMomentAs(start) ||
+        today.isAtSameMomentAs(end) ||
+        (now.isAfter(start) && now.isBefore(end));
+  }
 }

@@ -227,7 +227,7 @@ class MessDashboardView extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: AppTheme.cardColor,
                       borderRadius: BorderRadius.circular(12),
-                      border: room.isActiveBazar
+                      border: room.isBazarCurrentlyActive
                           ? Border.all(color: AppTheme.successColor, width: 2)
                           : null,
                     ),
@@ -264,7 +264,7 @@ class MessDashboardView extends StatelessWidget {
                               ),
                             ),
                             const Spacer(),
-                            if (room.isActiveBazar)
+                            if (room.isBazarCurrentlyActive)
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 10,
@@ -277,7 +277,7 @@ class MessDashboardView extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: const Text(
-                                  '🟢 Active Bazar',
+                                  '🟢 Active Now',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: AppTheme.successColor,

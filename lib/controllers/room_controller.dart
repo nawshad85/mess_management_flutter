@@ -106,7 +106,7 @@ class RoomController extends GetxController {
     final user = _authController.currentUser.value;
     if (user == null) return false;
     if (user.isManager) return true;
-    return room.isActiveBazar && room.memberIds.contains(userId);
+    return room.isBazarCurrentlyActive && room.memberIds.contains(userId);
   }
 
   // Get the room a user belongs to
