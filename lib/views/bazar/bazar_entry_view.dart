@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mess_manager/controllers/auth_controller.dart';
 import 'package:mess_manager/controllers/room_controller.dart';
+import 'package:mess_manager/controllers/mess_controller.dart';
 import 'package:mess_manager/controllers/bazar_controller.dart';
 import 'package:mess_manager/models/bazar_model.dart';
 import 'package:mess_manager/app/theme/app_theme.dart';
@@ -72,7 +73,12 @@ class _BazarEntryViewState extends State<BazarEntryView> {
                   ),
                 ),
               ),
-            ...entries.map((entry) => _BazarEntryCard(entry: entry)),
+            ...entries.map(
+              (entry) => _BazarEntryCard(
+                entry: entry,
+                members: Get.find<MessController>().messMembers,
+              ),
+            ),
           ],
         );
       }),
@@ -223,13 +229,12 @@ class _BazarEntryViewState extends State<BazarEntryView> {
                       onPressed: items.isEmpty
                           ? null
                           : () async {
-                              final success = await bazarController
-                                  .addBazarEntry(
-                                    roomId: roomId,
-                                    date: DateTime.now(),
-                                    items: items.toList(),
-                                  );
-                              if (success) Get.back();
+                              Get.back(); // close sheet immediately
+                              await bazarController.addBazarEntry(
+                                roomId: roomId,
+                                date: DateTime.now(),
+                                items: items.toList(),
+                              );
                             },
                       child: const Text('Save'),
                     ),
@@ -247,8 +252,9 @@ class _BazarEntryViewState extends State<BazarEntryView> {
 
 class _BazarEntryCard extends StatelessWidget {
   final BazarModel entry;
+  final List members;
 
-  const _BazarEntryCard({required this.entry});
+  const _BazarEntryCard({required this.entry, required this.members});
 
   @override
   Widget build(BuildContext context) {
@@ -280,6 +286,14 @@ class _BazarEntryCard extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                   ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                _getUsername(entry.addedBy),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.textSecondary,
                 ),
               ),
               const Spacer(),
@@ -322,5 +336,14 @@ class _BazarEntryCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _getUsername(String uid) {
+    try {
+      final member = members.firstWhere((m) => m.uid == uid);
+      return '@${member.username}';
+    } catch (_) {
+      return '';
+    }
   }
 }
