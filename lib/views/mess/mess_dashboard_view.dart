@@ -92,6 +92,78 @@ class MessDashboardView extends StatelessWidget {
                 ],
               );
             }),
+            const SizedBox(height: 16),
+
+            // Monthly Summary shortcut
+            GestureDetector(
+              onTap: () => Get.toNamed(AppRoutes.monthlySummary),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppTheme.warningColor.withValues(alpha: 0.15),
+                      AppTheme.accentColor.withValues(alpha: 0.08),
+                    ],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppTheme.warningColor.withValues(alpha: 0.15),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.warningColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.summarize_rounded,
+                        color: AppTheme.warningColor,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Monthly Summary',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Financial breakdown per member',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
             const SizedBox(height: 24),
 
             // Members section
@@ -112,9 +184,17 @@ class MessDashboardView extends StatelessWidget {
                   style: TextStyle(color: AppTheme.textSecondary),
                 );
               }
+              final totalCost = bazarController.totalBazarCost;
+              final totalMeals = mealController.totalMeals;
+              final costPerMeal = totalMeals > 0 ? totalCost / totalMeals : 0.0;
+
               return Column(
                 children: members.map((member) {
                   final room = roomController.getUserRoom(member.uid);
+                  final userMeals = mealController.getUserTotalMeals(
+                    member.uid,
+                  );
+                  final userCost = userMeals * costPerMeal;
                   return Container(
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.all(12),
@@ -185,12 +265,26 @@ class MessDashboardView extends StatelessWidget {
                             ],
                           ),
                         ),
-                        Text(
-                          '${mealController.getUserTotalMeals(member.uid)} meals',
-                          style: const TextStyle(
-                            color: AppTheme.textSecondary,
-                            fontSize: 13,
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '$userMeals meals',
+                              style: const TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '৳${userCost.toStringAsFixed(1)}',
+                              style: const TextStyle(
+                                color: AppTheme.warningColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),

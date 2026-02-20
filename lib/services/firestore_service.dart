@@ -4,6 +4,7 @@ import 'package:mess_manager/models/mess_model.dart';
 import 'package:mess_manager/models/room_model.dart';
 import 'package:mess_manager/models/bazar_model.dart';
 import 'package:mess_manager/models/meal_entry_model.dart';
+import 'package:mess_manager/models/monthly_summary_model.dart';
 import 'package:mess_manager/utils/constants.dart';
 import 'package:uuid/uuid.dart';
 
@@ -409,5 +410,103 @@ class FirestoreService {
             'bazarEndDate': null,
           });
     }
+  }
+
+  // ============== MONTHLY SUMMARY OPERATIONS ==============
+
+  Future<void> saveMonthlySummary({
+    required String messId,
+    required MonthlySummaryModel summary,
+  }) async {
+    await _firestore
+        .collection(AppConstants.messesCollection)
+        .doc(messId)
+        .collection(AppConstants.monthlySummariesCollection)
+        .doc(summary.docId)
+        .set(summary.toMap());
+  }
+
+  Future<MonthlySummaryModel?> getMonthlySummary({
+    required String messId,
+    required int year,
+    required int month,
+  }) async {
+    final docId = '${year}_$month';
+    final doc = await _firestore
+        .collection(AppConstants.messesCollection)
+        .doc(messId)
+        .collection(AppConstants.monthlySummariesCollection)
+        .doc(docId)
+        .get();
+    if (!doc.exists) return null;
+    return MonthlySummaryModel.fromMap(doc.data()!);
+  }
+
+  Future<List<BazarModel>> getBazarEntriesForMonth({
+    required String messId,
+    required int year,
+    required int month,
+  }) async {
+    final start = DateTime(year, month, 1);
+    final end = DateTime(year, month + 1, 1);
+    final snap = await _firestore
+        .collection(AppConstants.messesCollection)
+        .doc(messId)
+        .collection(AppConstants.bazarEntriesCollection)
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where('date', isLessThan: Timestamp.fromDate(end))
+        .get();
+    return snap.docs.map((d) => BazarModel.fromMap(d.data())).toList();
+  }
+
+  Future<List<MealEntryModel>> getMealEntriesForMonth({
+    required String messId,
+    required int year,
+    required int month,
+  }) async {
+    final start = DateTime(year, month, 1);
+    final end = DateTime(year, month + 1, 1);
+    final snap = await _firestore
+        .collection(AppConstants.messesCollection)
+        .doc(messId)
+        .collection(AppConstants.mealEntriesCollection)
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where('date', isLessThan: Timestamp.fromDate(end))
+        .get();
+    return snap.docs.map((d) => MealEntryModel.fromMap(d.data())).toList();
+  }
+
+  // ============== MONTHLY DEPOSITS ==============
+
+  Future<void> saveMonthlyDeposits({
+    required String messId,
+    required int year,
+    required int month,
+    required Map<String, double> deposits, // uid -> amount
+  }) async {
+    final docId = '${year}_$month';
+    await _firestore
+        .collection(AppConstants.messesCollection)
+        .doc(messId)
+        .collection('monthlyDeposits')
+        .doc(docId)
+        .set({'deposits': deposits, 'updatedAt': Timestamp.now()});
+  }
+
+  Future<Map<String, double>> getMonthlyDeposits({
+    required String messId,
+    required int year,
+    required int month,
+  }) async {
+    final docId = '${year}_$month';
+    final doc = await _firestore
+        .collection(AppConstants.messesCollection)
+        .doc(messId)
+        .collection('monthlyDeposits')
+        .doc(docId)
+        .get();
+    if (!doc.exists) return {};
+    final raw = doc.data()?['deposits'] as Map<String, dynamic>? ?? {};
+    return raw.map((k, v) => MapEntry(k, (v as num).toDouble()));
   }
 }

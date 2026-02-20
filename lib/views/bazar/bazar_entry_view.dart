@@ -30,10 +30,12 @@ class _BazarEntryViewState extends State<BazarEntryView> {
         final activeRoom = roomController.rooms
             .where((r) => r.isActiveBazar)
             .firstOrNull;
+        final isManager = user?.isManager ?? false;
         final canAdd =
             user != null &&
-            activeRoom != null &&
-            roomController.canEditBazar(user.uid, activeRoom);
+            (isManager ||
+                (activeRoom != null &&
+                    roomController.canEditBazar(user.uid, activeRoom)));
 
         if (entries.isEmpty && !canAdd) {
           return Center(
@@ -66,8 +68,10 @@ class _BazarEntryViewState extends State<BazarEntryView> {
                   width: double.infinity,
                   height: 48,
                   child: ElevatedButton.icon(
-                    onPressed: () =>
-                        _showAddEntryDialog(context, activeRoom.roomId),
+                    onPressed: () => _showAddEntryDialog(
+                      context,
+                      activeRoom?.roomId ?? 'general',
+                    ),
                     icon: const Icon(Icons.add),
                     label: const Text('Add Bazar Entry'),
                   ),

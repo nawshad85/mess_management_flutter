@@ -44,7 +44,10 @@ class ChatController extends GetxController {
     }
   }
 
-  Future<void> sendTextMessage(String text) async {
+  Future<void> sendTextMessage(
+    String text, {
+    List<String> mentions = const [],
+  }) async {
     if (text.trim().isEmpty) return;
 
     try {
@@ -58,6 +61,7 @@ class ChatController extends GetxController {
         senderName: user.username,
         type: AppConstants.messageText,
         content: text.trim(),
+        mentions: mentions,
       );
 
       await _chatService.sendMessage(messId: mess.messId, message: message);

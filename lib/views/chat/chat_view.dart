@@ -2,20 +2,149 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mess_manager/controllers/auth_controller.dart';
 import 'package:mess_manager/controllers/chat_controller.dart';
+import 'package:mess_manager/controllers/mess_controller.dart';
 import 'package:mess_manager/models/chat_message_model.dart';
+import 'package:mess_manager/models/user_model.dart';
 import 'package:mess_manager/app/theme/app_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
-class ChatView extends StatelessWidget {
+class ChatView extends StatefulWidget {
   const ChatView({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final chatController = Get.find<ChatController>();
-    final authController = Get.find<AuthController>();
-    final messageController = TextEditingController();
+  State<ChatView> createState() => _ChatViewState();
+}
 
+class _ChatViewState extends State<ChatView> {
+  final chatController = Get.find<ChatController>();
+  final authController = Get.find<AuthController>();
+  final messController = Get.find<MessController>();
+
+  final _messageController = TextEditingController();
+  final _scrollController = ScrollController();
+
+  /// Tracked mentions: uid -> username
+  final Map<String, String> _mentionedUsers = {};
+
+  /// Whether the @mention popup is visible.
+  bool _showMentionPopup = false;
+
+  /// Filter query typed after '@'.
+  String _mentionQuery = '';
+
+  /// Position of the '@' that triggered the popup.
+  int _mentionStartIndex = -1;
+
+  @override
+  void initState() {
+    super.initState();
+    _messageController.addListener(_onTextChanged);
+  }
+
+  @override
+  void dispose() {
+    _messageController.removeListener(_onTextChanged);
+    _messageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onTextChanged() {
+    final text = _messageController.text;
+    final cursorPos = _messageController.selection.baseOffset;
+
+    if (cursorPos < 0 || cursorPos > text.length) {
+      _hideMentionPopup();
+      return;
+    }
+
+    // Look backwards from cursor for a '@' that is either at start or after a space
+    int atIndex = -1;
+    for (int i = cursorPos - 1; i >= 0; i--) {
+      if (text[i] == ' ' || text[i] == '\n') break;
+      if (text[i] == '@') {
+        if (i == 0 || text[i - 1] == ' ' || text[i - 1] == '\n') {
+          atIndex = i;
+        }
+        break;
+      }
+    }
+
+    if (atIndex >= 0) {
+      final query = text.substring(atIndex + 1, cursorPos).toLowerCase();
+      setState(() {
+        _showMentionPopup = true;
+        _mentionQuery = query;
+        _mentionStartIndex = atIndex;
+      });
+    } else {
+      _hideMentionPopup();
+    }
+  }
+
+  void _hideMentionPopup() {
+    if (_showMentionPopup) {
+      setState(() {
+        _showMentionPopup = false;
+        _mentionQuery = '';
+        _mentionStartIndex = -1;
+      });
+    }
+  }
+
+  void _selectMention(UserModel member) {
+    final text = _messageController.text;
+    final cursorPos = _messageController.selection.baseOffset;
+    final before = text.substring(0, _mentionStartIndex);
+    final after = text.substring(cursorPos);
+    final mention = '@${member.username} ';
+
+    _mentionedUsers[member.uid] = member.username;
+
+    final newText = '$before$mention$after';
+    _messageController.text = newText;
+    _messageController.selection = TextSelection.collapsed(
+      offset: _mentionStartIndex + mention.length,
+    );
+    _hideMentionPopup();
+  }
+
+  void _sendMessage() {
+    final text = _messageController.text;
+    if (text.trim().isEmpty) return;
+
+    // Extract mentioned UIDs that are actually in the final text
+    final mentionUids = <String>[];
+    for (final entry in _mentionedUsers.entries) {
+      if (text.contains('@${entry.value}')) {
+        mentionUids.add(entry.key);
+      }
+    }
+
+    chatController.sendTextMessage(text, mentions: mentionUids);
+    _messageController.clear();
+    _mentionedUsers.clear();
+    _hideMentionPopup();
+  }
+
+  List<UserModel> get _filteredMembers {
+    final members = messController.messMembers;
+    final currentUid = authController.currentUser.value?.uid;
+    if (_mentionQuery.isEmpty) {
+      return members.where((m) => m.uid != currentUid).toList();
+    }
+    return members
+        .where(
+          (m) =>
+              m.uid != currentUid &&
+              m.username.toLowerCase().contains(_mentionQuery),
+        )
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mess Chat'),
@@ -72,6 +201,7 @@ class ChatView extends StatelessWidget {
 
               return ListView.builder(
                 reverse: true,
+                controller: _scrollController,
                 padding: const EdgeInsets.all(16),
                 itemCount: messages.length,
                 itemBuilder: (context, index) {
@@ -83,6 +213,9 @@ class ChatView extends StatelessWidget {
               );
             }),
           ),
+
+          // Mention popup
+          if (_showMentionPopup) _buildMentionPopup(),
 
           // Send bar
           Obx(
@@ -103,10 +236,10 @@ class ChatView extends StatelessWidget {
                   children: [
                     Expanded(
                       child: TextField(
-                        controller: messageController,
+                        controller: _messageController,
                         textCapitalization: TextCapitalization.sentences,
                         decoration: InputDecoration(
-                          hintText: 'Type a message...',
+                          hintText: 'Type a message... use @ to mention',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(24),
                             borderSide: BorderSide.none,
@@ -118,10 +251,7 @@ class ChatView extends StatelessWidget {
                             vertical: 10,
                           ),
                         ),
-                        onSubmitted: (text) {
-                          chatController.sendTextMessage(text);
-                          messageController.clear();
-                        },
+                        onSubmitted: (_) => _sendMessage(),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -137,12 +267,7 @@ class ChatView extends StatelessWidget {
                       child: IconButton(
                         onPressed: chatController.isSending.value
                             ? null
-                            : () {
-                                chatController.sendTextMessage(
-                                  messageController.text,
-                                );
-                                messageController.clear();
-                              },
+                            : _sendMessage,
                         icon: chatController.isSending.value
                             ? const SizedBox(
                                 width: 20,
@@ -165,6 +290,82 @@ class ChatView extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMentionPopup() {
+    final filtered = _filteredMembers;
+    if (filtered.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 180),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 12,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: ListView.builder(
+        shrinkWrap: true,
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        itemCount: filtered.length,
+        itemBuilder: (context, index) {
+          final member = filtered[index];
+          return InkWell(
+            onTap: () => _selectMention(member),
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundColor: AppTheme.primaryColor.withValues(
+                      alpha: 0.2,
+                    ),
+                    child: Text(
+                      member.username[0].toUpperCase(),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '@${member.username}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Text(
+                        member.email,
+                        style: const TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -271,12 +472,62 @@ class _MessageBubble extends StatelessWidget {
       );
     }
 
-    return Text(
-      message.content,
-      style: TextStyle(
-        color: isMe ? Colors.white : AppTheme.textPrimary,
-        fontSize: 15,
-      ),
-    );
+    // Text with @mention highlighting
+    return _buildRichText();
+  }
+
+  Widget _buildRichText() {
+    final text = message.content;
+    final baseColor = isMe ? Colors.white : AppTheme.textPrimary;
+    final mentionColor = isMe ? Colors.yellowAccent : AppTheme.accentColor;
+
+    // Find @mentions using regex
+    final mentionRegex = RegExp(r'@(\w+)');
+    final matches = mentionRegex.allMatches(text).toList();
+
+    if (matches.isEmpty) {
+      return Text(text, style: TextStyle(color: baseColor, fontSize: 15));
+    }
+
+    final spans = <TextSpan>[];
+    int lastEnd = 0;
+
+    for (final match in matches) {
+      // Add text before the mention
+      if (match.start > lastEnd) {
+        spans.add(
+          TextSpan(
+            text: text.substring(lastEnd, match.start),
+            style: TextStyle(color: baseColor, fontSize: 15),
+          ),
+        );
+      }
+
+      // Add the mention with highlight
+      spans.add(
+        TextSpan(
+          text: match.group(0),
+          style: TextStyle(
+            color: mentionColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+          ),
+        ),
+      );
+
+      lastEnd = match.end;
+    }
+
+    // Add remaining text
+    if (lastEnd < text.length) {
+      spans.add(
+        TextSpan(
+          text: text.substring(lastEnd),
+          style: TextStyle(color: baseColor, fontSize: 15),
+        ),
+      );
+    }
+
+    return RichText(text: TextSpan(children: spans));
   }
 }

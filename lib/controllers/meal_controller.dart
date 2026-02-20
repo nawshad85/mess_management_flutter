@@ -49,21 +49,28 @@ class MealController extends GetxController {
       final user = _authController.currentUser.value!;
       final mess = _messController.currentMess.value!;
 
-      // Permission check
-      final room = _roomController.rooms.firstWhere((r) => r.roomId == roomId);
-      if (!_roomController.canEditBazar(user.uid, room)) {
-        _authController.showSnackbar(
-          'Permission Denied',
-          'You cannot edit meals for this room right now',
-          isError: true,
+      // Permission check — managers can always add, others need active room
+      if (!user.isManager) {
+        final room = _roomController.rooms.firstWhereOrNull(
+          (r) => r.roomId == roomId,
         );
-        return false;
+        if (room == null || !_roomController.canEditBazar(user.uid, room)) {
+          _authController.showSnackbar(
+            'Permission Denied',
+            'You cannot edit meals for this room right now',
+            isError: true,
+          );
+          return false;
+        }
       }
+
+      // Use 'general' if no room covers this date
+      final effectiveRoomId = roomId.isEmpty ? 'general' : roomId;
 
       final entry = MealEntryModel(
         entryId: _uuid.v4(),
         date: date,
-        roomId: roomId,
+        roomId: effectiveRoomId,
         meals: meals,
         addedBy: user.uid,
       );
@@ -90,16 +97,18 @@ class MealController extends GetxController {
       final user = _authController.currentUser.value!;
       final mess = _messController.currentMess.value!;
 
-      final room = _roomController.rooms.firstWhere(
-        (r) => r.roomId == entry.roomId,
-      );
-      if (!_roomController.canEditBazar(user.uid, room)) {
-        _authController.showSnackbar(
-          'Permission Denied',
-          'You cannot edit meals for this room right now',
-          isError: true,
+      if (!user.isManager) {
+        final room = _roomController.rooms.firstWhereOrNull(
+          (r) => r.roomId == entry.roomId,
         );
-        return false;
+        if (room == null || !_roomController.canEditBazar(user.uid, room)) {
+          _authController.showSnackbar(
+            'Permission Denied',
+            'You cannot edit meals for this room right now',
+            isError: true,
+          );
+          return false;
+        }
       }
 
       await _firestoreService.updateMealEntry(

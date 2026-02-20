@@ -729,8 +729,8 @@ class _MealEditorSheetState extends State<_MealEditorSheet> {
                         }
                         if (success) {
                           widget.onSaved();
-                          Get.back();
                         }
+                        if (mounted) Navigator.of(context).pop();
                       },
                 child: widget.mealController.isLoading.value
                     ? const SizedBox(

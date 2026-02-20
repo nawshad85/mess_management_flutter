@@ -7,6 +7,7 @@ class AppConstants {
   static const String mealEntriesCollection = 'mealEntries';
   static const String messagesCollection = 'messages';
   static const String invitationsCollection = 'invitations';
+  static const String monthlySummariesCollection = 'monthlySummaries';
 
   // Roles
   static const String roleManager = 'manager';
