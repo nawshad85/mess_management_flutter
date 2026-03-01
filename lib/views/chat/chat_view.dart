@@ -7,7 +7,6 @@ import 'package:mess_manager/models/chat_message_model.dart';
 import 'package:mess_manager/models/user_model.dart';
 import 'package:mess_manager/app/theme/app_theme.dart';
 import 'package:intl/intl.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 class ChatView extends StatefulWidget {
   const ChatView({super.key});
@@ -146,21 +145,7 @@ class _ChatViewState extends State<ChatView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mess Chat'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.photo_rounded),
-            onPressed: () => chatController.sendImage(),
-            tooltip: 'Send Photo',
-          ),
-          IconButton(
-            icon: const Icon(Icons.attach_file_rounded),
-            onPressed: () => chatController.sendDocument(),
-            tooltip: 'Send Document',
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Mess Chat')),
       body: Column(
         children: [
           // Messages list
@@ -402,9 +387,7 @@ class _MessageBubble extends StatelessWidget {
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(context).size.width * 0.75,
             ),
-            padding: message.isImage
-                ? const EdgeInsets.all(4)
-                : const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: isMe ? AppTheme.primaryColor : AppTheme.cardColor,
               borderRadius: BorderRadius.only(
@@ -414,7 +397,7 @@ class _MessageBubble extends StatelessWidget {
                 bottomRight: Radius.circular(isMe ? 4 : 16),
               ),
             ),
-            child: _buildContent(),
+            child: _buildRichText(),
           ),
           Padding(
             padding: const EdgeInsets.only(top: 4),
@@ -429,51 +412,6 @@ class _MessageBubble extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  Widget _buildContent() {
-    if (message.isImage) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: CachedNetworkImage(
-          imageUrl: message.content,
-          width: 200,
-          fit: BoxFit.cover,
-          placeholder: (_, _) => const SizedBox(
-            width: 200,
-            height: 150,
-            child: Center(child: CircularProgressIndicator()),
-          ),
-          errorWidget: (_, _, _) => const SizedBox(
-            width: 200,
-            height: 150,
-            child: Icon(Icons.broken_image, color: AppTheme.textSecondary),
-          ),
-        ),
-      );
-    }
-
-    if (message.isDocument) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.insert_drive_file, color: Colors.white70, size: 20),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              message.fileName ?? 'Document',
-              style: TextStyle(
-                color: isMe ? Colors.white : AppTheme.textPrimary,
-                decoration: TextDecoration.underline,
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    // Text with @mention highlighting
-    return _buildRichText();
   }
 
   Widget _buildRichText() {

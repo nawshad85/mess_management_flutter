@@ -13,11 +13,6 @@ class AppConstants {
   static const String roleManager = 'manager';
   static const String roleMember = 'member';
 
-  // Message types
-  static const String messageText = 'text';
-  static const String messageImage = 'image';
-  static const String messageDocument = 'document';
-
   // Mess constraints
   static const int minRooms = 2;
   static const int maxRooms = 5;

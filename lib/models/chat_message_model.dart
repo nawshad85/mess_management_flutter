@@ -4,9 +4,7 @@ class ChatMessageModel {
   final String messageId;
   final String senderId;
   final String senderName;
-  final String type; // 'text', 'image', 'document'
-  final String content; // text or download URL
-  final String? fileName;
+  final String content;
   final List<String> mentions; // UIDs of mentioned users
   final DateTime createdAt;
 
@@ -14,9 +12,7 @@ class ChatMessageModel {
     required this.messageId,
     required this.senderId,
     required this.senderName,
-    required this.type,
     required this.content,
-    this.fileName,
     this.mentions = const [],
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
@@ -26,9 +22,7 @@ class ChatMessageModel {
       'messageId': messageId,
       'senderId': senderId,
       'senderName': senderName,
-      'type': type,
       'content': content,
-      'fileName': fileName,
       'mentions': mentions,
       'createdAt': Timestamp.fromDate(createdAt),
     };
@@ -39,17 +33,11 @@ class ChatMessageModel {
       messageId: map['messageId'] ?? '',
       senderId: map['senderId'] ?? '',
       senderName: map['senderName'] ?? '',
-      type: map['type'] ?? 'text',
       content: map['content'] ?? '',
-      fileName: map['fileName'],
       mentions: List<String>.from(map['mentions'] ?? []),
       createdAt: map['createdAt'] != null
           ? (map['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
     );
   }
-
-  bool get isText => type == 'text';
-  bool get isImage => type == 'image';
-  bool get isDocument => type == 'document';
 }
