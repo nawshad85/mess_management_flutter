@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 import 'package:mess_manager/views/splash/splash_view.dart';
 import 'package:mess_manager/views/auth/login_view.dart';
 import 'package:mess_manager/views/auth/register_view.dart';
+import 'package:mess_manager/views/auth/email_verification_view.dart';
 import 'package:mess_manager/views/home/home_view.dart';
 import 'package:mess_manager/views/mess/create_mess_view.dart';
 import 'package:mess_manager/views/mess/invite_member_view.dart';
@@ -17,6 +18,7 @@ class AppRoutes {
   static const String splash = '/';
   static const String login = '/login';
   static const String register = '/register';
+  static const String emailVerification = '/email-verification';
   static const String home = '/home';
   static const String createMess = '/create-mess';
   static const String inviteMember = '/invite-member';
@@ -32,6 +34,7 @@ class AppRoutes {
     GetPage(name: splash, page: () => const SplashView()),
     GetPage(name: login, page: () => const LoginView()),
     GetPage(name: register, page: () => const RegisterView()),
+    GetPage(name: emailVerification, page: () => const EmailVerificationView()),
     GetPage(name: home, page: () => const HomeView()),
     GetPage(name: createMess, page: () => const CreateMessView()),
     GetPage(name: inviteMember, page: () => const InviteMemberView()),

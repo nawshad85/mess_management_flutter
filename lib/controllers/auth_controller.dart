@@ -19,7 +19,17 @@ class AuthController extends GetxController {
     // Listen to Firebase auth state changes
     FirebaseAuth.instance.authStateChanges().listen((firebaseUser) async {
       if (firebaseUser != null) {
-        // User is signed in — load their Firestore profile
+        // Check email verification first
+        if (!firebaseUser.emailVerified) {
+          // Don't load profile or navigate to home — wait for verification
+          if (Get.currentRoute != '/email-verification' &&
+              Get.currentRoute != '/register') {
+            Get.offAllNamed('/email-verification');
+          }
+          return;
+        }
+
+        // User is signed in & verified — load their Firestore profile
         final user = await _authService.getCurrentUserModel();
         currentUser.value = user;
         // Tag device in OneSignal for push notifications
@@ -32,7 +42,8 @@ class AuthController extends GetxController {
         // Navigate to home if on splash, login, or register
         if (Get.currentRoute == '/' ||
             Get.currentRoute == '/login' ||
-            Get.currentRoute == '/register') {
+            Get.currentRoute == '/register' ||
+            Get.currentRoute == '/email-verification') {
           Get.offAllNamed('/home');
         }
       } else {
@@ -59,12 +70,15 @@ class AuthController extends GetxController {
       isLoading.value = true;
       errorMessage.value = '';
 
-      final user = await _authService.register(
+      await _authService.register(
         email: email,
         password: password,
         name: name,
       );
-      currentUser.value = user;
+
+      // Send verification email
+      await _authService.sendVerificationEmail();
+
       return true;
     } catch (e) {
       errorMessage.value = _getErrorMessage(e);

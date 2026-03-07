@@ -21,7 +21,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
-      title: 'Mess Manager',
+      title: 'MessHub',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       initialBinding: AppBinding(),

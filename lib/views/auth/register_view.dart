@@ -164,7 +164,7 @@ class RegisterView extends StatelessWidget {
                                             name: nameController.text,
                                           );
                                       if (success) {
-                                        Get.offAllNamed(AppRoutes.home);
+                                        Get.offAllNamed(AppRoutes.emailVerification);
                                       }
                                     }
                                   },

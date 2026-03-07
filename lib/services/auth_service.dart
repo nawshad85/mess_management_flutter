@@ -65,6 +65,14 @@ class AuthService {
     return userModel;
   }
 
+  // Send email verification
+  Future<void> sendVerificationEmail() async {
+    final user = _auth.currentUser;
+    if (user != null && !user.emailVerified) {
+      await user.sendEmailVerification();
+    }
+  }
+
   // Login with email and password
   Future<UserModel> login({
     required String email,
