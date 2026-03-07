@@ -46,3 +46,6 @@ app.*.map.json
 
 # Firebase config (contains API keys)
 android/app/google-services.json
+
+# App secrets (OneSignal keys, etc.)
+lib/utils/secrets.dart

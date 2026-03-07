@@ -32,4 +32,50 @@ class ChatService {
         .doc(message.messageId)
         .set(message.toMap());
   }
+
+  // Mark messages as read by a user
+  Future<void> markMessagesAsRead({
+    required String messId,
+    required String uid,
+    required List<String> messageIds,
+  }) async {
+    if (messageIds.isEmpty) return;
+    final batch = _firestore.batch();
+    final col = _firestore
+        .collection(AppConstants.messesCollection)
+        .doc(messId)
+        .collection(AppConstants.messagesCollection);
+
+    for (final id in messageIds) {
+      batch.update(col.doc(id), {'readBy.$uid': FieldValue.serverTimestamp()});
+    }
+    await batch.commit();
+  }
+
+  // Edit a message's content
+  Future<void> editMessage({
+    required String messId,
+    required String messageId,
+    required String newContent,
+  }) async {
+    await _firestore
+        .collection(AppConstants.messesCollection)
+        .doc(messId)
+        .collection(AppConstants.messagesCollection)
+        .doc(messageId)
+        .update({'content': newContent, 'isEdited': true});
+  }
+
+  // Delete a message permanently (no trace)
+  Future<void> deleteMessage({
+    required String messId,
+    required String messageId,
+  }) async {
+    await _firestore
+        .collection(AppConstants.messesCollection)
+        .doc(messId)
+        .collection(AppConstants.messagesCollection)
+        .doc(messageId)
+        .delete();
+  }
 }

@@ -5,11 +5,13 @@ import 'package:mess_manager/app/theme/app_theme.dart';
 import 'package:mess_manager/app/routes/app_routes.dart';
 import 'package:mess_manager/app/bindings/app_binding.dart';
 import 'package:mess_manager/services/notification_service.dart';
+import 'package:mess_manager/services/onesignal_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   await NotificationService().initialize();
+  OneSignalService().initialize();
   runApp(const MyApp());
 }
 

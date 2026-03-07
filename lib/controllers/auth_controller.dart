@@ -3,9 +3,11 @@ import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:mess_manager/models/user_model.dart';
 import 'package:mess_manager/services/auth_service.dart';
+import 'package:mess_manager/services/onesignal_service.dart';
 
 class AuthController extends GetxController {
   final AuthService _authService = AuthService();
+  final OneSignalService _oneSignalService = OneSignalService();
 
   final Rx<UserModel?> currentUser = Rx<UserModel?>(null);
   final RxBool isLoading = false.obs;
@@ -20,6 +22,13 @@ class AuthController extends GetxController {
         // User is signed in — load their Firestore profile
         final user = await _authService.getCurrentUserModel();
         currentUser.value = user;
+        // Tag device in OneSignal for push notifications
+        if (user != null) {
+          _oneSignalService.setUserTags(
+            uid: user.uid,
+            messId: user.messId,
+          );
+        }
         // Navigate to home if on splash, login, or register
         if (Get.currentRoute == '/' ||
             Get.currentRoute == '/login' ||
@@ -82,9 +91,36 @@ class AuthController extends GetxController {
   }
 
   Future<void> logout() async {
+    _oneSignalService.removeUserTags();
     await _authService.logout();
     currentUser.value = null;
     Get.offAllNamed('/login');
+  }
+
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      isLoading.value = true;
+      errorMessage.value = '';
+      await _authService.sendPasswordResetEmail(email);
+      showSnackbar(
+        'Email Sent',
+        'Password reset link has been sent to $email. Check your inbox.',
+      );
+    } catch (e) {
+      errorMessage.value = _getResetErrorMessage(e);
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  String _getResetErrorMessage(dynamic e) {
+    final msg = e.toString();
+    if (msg.contains('user-not-found')) {
+      return 'No account found with this email';
+    } else if (msg.contains('invalid-email')) {
+      return 'Please enter a valid email address';
+    }
+    return 'Failed to send reset email. Please try again.';
   }
 
   Future<void> refreshUser() async {

@@ -105,6 +105,11 @@ class AuthService {
     await _auth.signOut();
   }
 
+  // Send password reset email
+  Future<void> sendPasswordResetEmail(String email) async {
+    await _auth.sendPasswordResetEmail(email: email.trim());
+  }
+
   Future<void> setManagerPin(String pin) async {
     if (currentUser == null) throw Exception('Not authenticated');
     if (!RegExp(r'^\d{4,8}$').hasMatch(pin)) {

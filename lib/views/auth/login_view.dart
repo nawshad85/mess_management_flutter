@@ -96,6 +96,26 @@ class LoginView extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
 
+                      // Forgot Password
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: GestureDetector(
+                          onTap: () => _showForgotPasswordDialog(
+                            context,
+                            authController,
+                            emailController.text,
+                          ),
+                          child: const Text(
+                            'Forgot Password?',
+                            style: TextStyle(
+                              color: AppTheme.primaryColor,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ),
+
                       // Error message
                       Obx(() {
                         if (authController.errorMessage.value.isNotEmpty) {
@@ -180,5 +200,72 @@ class LoginView extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _showForgotPasswordDialog(
+    BuildContext context,
+    AuthController authController,
+    String prefillEmail,
+  ) {
+    final resetEmailController = TextEditingController(text: prefillEmail);
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppTheme.surfaceColor,
+        title: const Text(
+          'Reset Password',
+          style: TextStyle(color: AppTheme.textPrimary),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter your email address and we\'ll send you a link to reset your password.',
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: resetEmailController,
+              keyboardType: TextInputType.emailAddress,
+              autofocus: true,
+              style: const TextStyle(color: AppTheme.textPrimary),
+              decoration: InputDecoration(
+                hintText: 'Email address',
+                prefixIcon: const Icon(
+                  Icons.email_outlined,
+                  color: AppTheme.textSecondary,
+                ),
+                filled: true,
+                fillColor: AppTheme.cardColor,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final email = resetEmailController.text.trim();
+              if (email.isEmpty) return;
+              Navigator.pop(dialogContext);
+              authController.sendPasswordResetEmail(email);
+            },
+            child: const Text('Send Reset Link'),
+          ),
+        ],
+      ),
+    ).then((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        resetEmailController.dispose();
+      });
+    });
   }
 }
