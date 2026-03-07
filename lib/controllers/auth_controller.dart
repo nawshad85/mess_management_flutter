@@ -44,7 +44,7 @@ class AuthController extends GetxController {
   Future<bool> register({
     required String email,
     required String password,
-    required String username,
+    required String name,
   }) async {
     try {
       isLoading.value = true;
@@ -53,7 +53,7 @@ class AuthController extends GetxController {
       final user = await _authService.register(
         email: email,
         password: password,
-        username: username,
+        name: name,
       );
       currentUser.value = user;
       return true;
@@ -91,6 +91,38 @@ class AuthController extends GetxController {
     await _loadCurrentUser();
   }
 
+  Future<bool> setManagerPin(String pin) async {
+    try {
+      final user = currentUser.value;
+      if (user == null || !user.isManager) {
+        showSnackbar(
+          'Error',
+          'Only mess manager can set confirmation PIN',
+          isError: true,
+        );
+        return false;
+      }
+
+      await _authService.setManagerPin(pin);
+      await refreshUser();
+      showSnackbar('Success', 'Confirmation PIN saved');
+      return true;
+    } catch (e) {
+      showSnackbar('Error', e.toString(), isError: true);
+      return false;
+    }
+  }
+
+  Future<bool> verifyManagerPin(String pin) async {
+    try {
+      final user = currentUser.value;
+      if (user == null || !user.isManager) return false;
+      return await _authService.verifyManagerPin(pin);
+    } catch (_) {
+      return false;
+    }
+  }
+
   String _getErrorMessage(dynamic e) {
     final msg = e.toString();
     if (msg.contains('email-already-in-use')) {
@@ -102,8 +134,6 @@ class AuthController extends GetxController {
       return 'No account found with this email';
     } else if (msg.contains('weak-password')) {
       return 'Password is too weak';
-    } else if (msg.contains('Username is already taken')) {
-      return 'This username is already taken';
     }
     return 'Something went wrong. Please try again.';
   }

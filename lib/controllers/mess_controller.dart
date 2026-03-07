@@ -76,7 +76,15 @@ class MessController extends GetxController {
   }) async {
     try {
       isLoading.value = true;
-      final user = _authController.currentUser.value!;
+      final user = _authController.currentUser.value;
+      if (user == null) {
+        _authController.showSnackbar(
+          'Error',
+          'Your account is still loading. Please try again in a moment.',
+          isError: true,
+        );
+        return false;
+      }
 
       final mess = await _firestoreService.createMess(
         name: name,
@@ -100,16 +108,29 @@ class MessController extends GetxController {
     }
   }
 
-  Future<bool> inviteMember(String username) async {
+  Future<bool> inviteMember(String uniqueId) async {
     try {
       isLoading.value = true;
       final user = _authController.currentUser.value!;
       final mess = currentMess.value!;
 
-      // Find user by username
-      final targetUser = await _firestoreService.getUserByUsername(username);
+      // Find user by unique ID
+      final targetUser = await _firestoreService.getUserByUniqueId(uniqueId);
       if (targetUser == null) {
-        _authController.showSnackbar('Error', 'User not found', isError: true);
+        _authController.showSnackbar(
+          'Error',
+          'No user found with this ID',
+          isError: true,
+        );
+        return false;
+      }
+
+      if (targetUser.uid == user.uid) {
+        _authController.showSnackbar(
+          'Error',
+          'You cannot invite yourself',
+          isError: true,
+        );
         return false;
       }
 
@@ -135,11 +156,14 @@ class MessController extends GetxController {
         messId: mess.messId,
         messName: mess.name,
         fromUserId: user.uid,
-        fromUsername: user.username,
+        fromName: user.name,
         toUserId: targetUser.uid,
       );
 
-      _authController.showSnackbar('Success', 'Invitation sent to $username');
+      _authController.showSnackbar(
+        'Success',
+        'Invitation sent to ${targetUser.name}',
+      );
       return true;
     } catch (e) {
       _authController.showSnackbar(
@@ -181,7 +205,7 @@ class MessController extends GetxController {
     }
   }
 
-  Future<bool> resetAllEntries() async {
+  Future<bool> resetAllEntries({required String confirmationPin}) async {
     try {
       isLoading.value = true;
       final user = _authController.currentUser.value;
@@ -191,6 +215,18 @@ class MessController extends GetxController {
         _authController.showSnackbar(
           'Error',
           'Only the mess manager can reset entries',
+          isError: true,
+        );
+        return false;
+      }
+
+      final pinMatched = await _authController.verifyManagerPin(
+        confirmationPin,
+      );
+      if (!pinMatched) {
+        _authController.showSnackbar(
+          'Error',
+          'Invalid confirmation PIN',
           isError: true,
         );
         return false;
@@ -206,6 +242,116 @@ class MessController extends GetxController {
       _authController.showSnackbar(
         'Error',
         'Failed to reset entries',
+        isError: true,
+      );
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<bool> removeMember(
+    UserModel member, {
+    required String confirmationPin,
+  }) async {
+    try {
+      isLoading.value = true;
+      final currentUser = _authController.currentUser.value;
+      final mess = currentMess.value;
+
+      if (currentUser == null || mess == null || !currentUser.isManager) {
+        _authController.showSnackbar(
+          'Error',
+          'Only the mess manager can remove members',
+          isError: true,
+        );
+        return false;
+      }
+
+      if (member.isManager) {
+        _authController.showSnackbar(
+          'Error',
+          'Manager account cannot be removed',
+          isError: true,
+        );
+        return false;
+      }
+
+      final pinMatched = await _authController.verifyManagerPin(
+        confirmationPin,
+      );
+      if (!pinMatched) {
+        _authController.showSnackbar(
+          'Error',
+          'Invalid confirmation PIN',
+          isError: true,
+        );
+        return false;
+      }
+
+      await _firestoreService.removeMemberFromMess(
+        messId: mess.messId,
+        userId: member.uid,
+      );
+
+      _authController.showSnackbar(
+        'Success',
+        '${member.name} removed from mess',
+      );
+      return true;
+    } catch (e) {
+      _authController.showSnackbar(
+        'Error',
+        'Failed to remove member',
+        isError: true,
+      );
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<bool> deleteCurrentMess({required String confirmationPin}) async {
+    try {
+      isLoading.value = true;
+      final currentUser = _authController.currentUser.value;
+      final mess = currentMess.value;
+
+      if (currentUser == null || mess == null || !currentUser.isManager) {
+        _authController.showSnackbar(
+          'Error',
+          'Only the mess manager can delete this mess',
+          isError: true,
+        );
+        return false;
+      }
+
+      final pinMatched = await _authController.verifyManagerPin(
+        confirmationPin,
+      );
+      if (!pinMatched) {
+        _authController.showSnackbar(
+          'Error',
+          'Invalid confirmation PIN',
+          isError: true,
+        );
+        return false;
+      }
+
+      await _firestoreService.deleteMess(mess.messId);
+      currentMess.value = null;
+      messMembers.clear();
+      await _authController.refreshUser();
+
+      _authController.showSnackbar(
+        'Success',
+        'Mess deleted. All members were removed from the mess.',
+      );
+      return true;
+    } catch (e) {
+      _authController.showSnackbar(
+        'Error',
+        'Failed to delete mess',
         isError: true,
       );
       return false;

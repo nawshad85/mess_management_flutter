@@ -8,7 +8,7 @@ class InviteMemberView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final usernameController = TextEditingController();
+    final idController = TextEditingController();
     final messController = Get.find<MessController>();
 
     return Scaffold(
@@ -43,7 +43,7 @@ class InviteMemberView extends StatelessWidget {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'Enter their username to send an invitation',
+                    'Enter their Unique ID to send an invitation.\nThey can find it on their Profile page.',
                     style: TextStyle(
                       fontSize: 13,
                       color: AppTheme.textSecondary,
@@ -56,7 +56,7 @@ class InviteMemberView extends StatelessWidget {
             const SizedBox(height: 24),
 
             const Text(
-              'Username',
+              'Member Unique ID',
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 color: AppTheme.textPrimary,
@@ -64,11 +64,12 @@ class InviteMemberView extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             TextFormField(
-              controller: usernameController,
+              controller: idController,
+              textCapitalization: TextCapitalization.characters,
               decoration: const InputDecoration(
-                hintText: 'Enter username',
+                hintText: 'e.g. A3F7K9X2',
                 prefixIcon: Icon(
-                  Icons.alternate_email,
+                  Icons.fingerprint_rounded,
                   color: AppTheme.textSecondary,
                 ),
               ),
@@ -83,15 +84,15 @@ class InviteMemberView extends StatelessWidget {
                   onPressed: messController.isLoading.value
                       ? null
                       : () async {
-                          if (usernameController.text.trim().isEmpty) {
-                            Get.snackbar('Error', 'Please enter a username');
+                          if (idController.text.trim().isEmpty) {
+                            Get.snackbar('Error', 'Please enter a Unique ID');
                             return;
                           }
                           final success = await messController.inviteMember(
-                            usernameController.text.trim(),
+                            idController.text.trim(),
                           );
                           if (success) {
-                            usernameController.clear();
+                            idController.clear();
                           }
                         },
                   child: messController.isLoading.value

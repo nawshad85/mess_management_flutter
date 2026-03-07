@@ -21,6 +21,7 @@ class _CreateMessViewState extends State<CreateMessView> {
   List<int> roomCapacities = [2, 2];
 
   void _updateRoomCount(int count) {
+    if (count < AppConstants.minRooms || count > AppConstants.maxRooms) return;
     setState(() {
       roomCount = count;
       if (roomCapacities.length < count) {
@@ -117,44 +118,43 @@ class _CreateMessViewState extends State<CreateMessView> {
                 ),
               ),
               const SizedBox(height: 12),
-              Row(
-                children: List.generate(
-                  AppConstants.maxRooms - AppConstants.minRooms + 1,
-                  (index) {
-                    final count = index + AppConstants.minRooms;
-                    final isSelected = count == roomCount;
-                    return Expanded(
-                      child: GestureDetector(
-                        onTap: () => _updateRoomCount(count),
-                        child: Container(
-                          margin: EdgeInsets.only(right: index < 3 ? 8 : 0),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppTheme.primaryColor
-                                : AppTheme.cardColor,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: isSelected
-                                  ? AppTheme.primaryColor
-                                  : Colors.white.withValues(alpha: 0.1),
-                            ),
-                          ),
-                          child: Text(
-                            '$count',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: isSelected
-                                  ? Colors.white
-                                  : AppTheme.textSecondary,
-                            ),
-                          ),
-                        ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.cardColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      onPressed: roomCount > AppConstants.minRooms
+                          ? () => _updateRoomCount(roomCount - 1)
+                          : null,
+                      icon: const Icon(Icons.remove_circle_outline),
+                      color: AppTheme.primaryColor,
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      '$roomCount',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimary,
                       ),
-                    );
-                  },
+                    ),
+                    const SizedBox(width: 16),
+                    IconButton(
+                      onPressed: roomCount < AppConstants.maxRooms
+                          ? () => _updateRoomCount(roomCount + 1)
+                          : null,
+                      icon: const Icon(Icons.add_circle_outline),
+                      color: AppTheme.primaryColor,
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 24),
@@ -207,44 +207,52 @@ class _CreateMessViewState extends State<CreateMessView> {
                         ),
                       ),
                       const Spacer(),
-                      ...List.generate(3, (cap) {
-                        final capacity = cap + 1;
-                        final isSelected = roomCapacities[index] == capacity;
-                        return GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              roomCapacities[index] = capacity;
-                            });
-                          },
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            margin: const EdgeInsets.only(left: 8),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? AppTheme.secondaryColor
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: isSelected
-                                    ? AppTheme.secondaryColor
-                                    : Colors.white.withValues(alpha: 0.2),
-                              ),
-                            ),
-                            child: Center(
-                              child: Text(
-                                '$capacity',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: isSelected
-                                      ? Colors.black
-                                      : AppTheme.textSecondary,
-                                ),
-                              ),
-                            ),
+                      IconButton(
+                        onPressed:
+                            roomCapacities[index] >
+                                AppConstants.minPeoplePerRoom
+                            ? () {
+                                setState(() {
+                                  roomCapacities[index]--;
+                                });
+                              }
+                            : null,
+                        icon: const Icon(Icons.remove_circle_outline, size: 22),
+                        color: AppTheme.secondaryColor,
+                        constraints: const BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 36,
+                        ),
+                      ),
+                      Container(
+                        width: 36,
+                        alignment: Alignment.center,
+                        child: Text(
+                          '${roomCapacities[index]}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: AppTheme.textPrimary,
                           ),
-                        );
-                      }),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed:
+                            roomCapacities[index] <
+                                AppConstants.maxPeoplePerRoom
+                            ? () {
+                                setState(() {
+                                  roomCapacities[index]++;
+                                });
+                              }
+                            : null,
+                        icon: const Icon(Icons.add_circle_outline, size: 22),
+                        color: AppTheme.secondaryColor,
+                        constraints: const BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 36,
+                        ),
+                      ),
                     ],
                   ),
                 );

@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class MemberSummary {
   final String uid;
-  final String username;
+  final String name;
   final double moneyPutIn;
   final int totalMeals;
   final double mealCost;
@@ -11,7 +11,7 @@ class MemberSummary {
 
   MemberSummary({
     required this.uid,
-    required this.username,
+    required this.name,
     required this.moneyPutIn,
     required this.totalMeals,
     required this.mealCost,
@@ -22,7 +22,7 @@ class MemberSummary {
   Map<String, dynamic> toMap() {
     return {
       'uid': uid,
-      'username': username,
+      'name': name,
       'moneyPutIn': moneyPutIn,
       'totalMeals': totalMeals,
       'mealCost': mealCost,
@@ -34,7 +34,7 @@ class MemberSummary {
   factory MemberSummary.fromMap(Map<String, dynamic> map) {
     return MemberSummary(
       uid: map['uid'] ?? '',
-      username: map['username'] ?? '',
+      name: map['name'] ?? map['username'] ?? '',
       moneyPutIn: (map['moneyPutIn'] ?? 0).toDouble(),
       totalMeals: map['totalMeals'] ?? 0,
       mealCost: (map['mealCost'] ?? 0).toDouble(),
@@ -55,6 +55,14 @@ class MonthlySummaryModel {
   final int? fixedMeal;
   final List<MemberSummary> members;
 
+  /// uid -> true means the member has settled their payment.
+  final Map<String, bool> settlements;
+
+  /// uid -> actual amount transacted:
+  /// for a "to pay" member: how much they actually paid;
+  /// for a "to receive" member: how much they were paid back.
+  final Map<String, double> actualPayments;
+
   MonthlySummaryModel({
     required this.month,
     required this.year,
@@ -64,8 +72,12 @@ class MonthlySummaryModel {
     required this.costPerMeal,
     required this.members,
     this.fixedMeal,
+    Map<String, bool>? settlements,
+    Map<String, double>? actualPayments,
     DateTime? generatedAt,
-  }) : generatedAt = generatedAt ?? DateTime.now();
+  }) : settlements = settlements ?? {},
+       actualPayments = actualPayments ?? {},
+       generatedAt = generatedAt ?? DateTime.now();
 
   String get docId => '${year}_$month';
 
@@ -80,6 +92,8 @@ class MonthlySummaryModel {
       'costPerMeal': costPerMeal,
       'fixedMeal': fixedMeal,
       'members': members.map((m) => m.toMap()).toList(),
+      'settlements': settlements,
+      'actualPayments': actualPayments,
     };
   }
 
@@ -100,6 +114,11 @@ class MonthlySummaryModel {
               ?.map((m) => MemberSummary.fromMap(m as Map<String, dynamic>))
               .toList() ??
           [],
+      settlements: (map['settlements'] as Map<String, dynamic>? ?? {}).map(
+        (k, v) => MapEntry(k, v == true),
+      ),
+      actualPayments: (map['actualPayments'] as Map<String, dynamic>? ?? {})
+          .map((k, v) => MapEntry(k, (v as num).toDouble())),
     );
   }
 }

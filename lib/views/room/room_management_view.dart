@@ -91,14 +91,14 @@ class RoomManagementView extends StatelessWidget {
                       alpha: 0.3,
                     ),
                     child: Text(
-                      m.username[0].toUpperCase(),
+                      m.name.isNotEmpty ? m.name[0].toUpperCase() : '?',
                       style: const TextStyle(
                         fontSize: 12,
                         color: AppTheme.warningColor,
                       ),
                     ),
                   ),
-                  label: Text('@${m.username}'),
+                  label: Text(m.name),
                   backgroundColor: AppTheme.cardColor,
                   labelStyle: const TextStyle(color: AppTheme.textPrimary),
                   side: BorderSide(
@@ -191,7 +191,7 @@ class _RoomCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '@${m.username}',
+                      m.name,
                       style: const TextStyle(color: AppTheme.textPrimary),
                     ),
                   ],
@@ -234,8 +234,30 @@ class _RoomCard extends StatelessWidget {
               const Spacer(),
               TextButton(
                 onPressed: () => _showDatePicker(context),
-                child: const Text('Set Dates'),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(0, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('Set Dates', style: TextStyle(fontSize: 13)),
               ),
+              if (room.bazarStartDate != null)
+                TextButton(
+                  onPressed: () async {
+                    await roomController.clearBazarSchedule(
+                      roomId: room.roomId,
+                    );
+                  },
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    'Remove',
+                    style: TextStyle(color: AppTheme.errorColor, fontSize: 13),
+                  ),
+                ),
             ],
           ),
           if (room.bazarStartDate != null)
@@ -294,12 +316,12 @@ class _RoomCard extends StatelessWidget {
                 leading: CircleAvatar(
                   backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.2),
                   child: Text(
-                    m.username[0].toUpperCase(),
+                    m.name.isNotEmpty ? m.name[0].toUpperCase() : '?',
                     style: const TextStyle(color: AppTheme.primaryColor),
                   ),
                 ),
                 title: Text(
-                  '@${m.username}',
+                  m.name,
                   style: const TextStyle(color: AppTheme.textPrimary),
                 ),
                 onTap: () async {

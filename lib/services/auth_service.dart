@@ -1,5 +1,8 @@
+import 'dart:convert';
+import 'dart:math';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:crypto/crypto.dart';
 import 'package:mess_manager/models/user_model.dart';
 import 'package:mess_manager/utils/constants.dart';
 
@@ -10,27 +13,31 @@ class AuthService {
   User? get currentUser => _auth.currentUser;
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  // Check if username is unique
-  Future<bool> isUsernameAvailable(String username) async {
-    final query = await _firestore
-        .collection(AppConstants.usersCollection)
-        .where('username', isEqualTo: username.trim().toLowerCase())
-        .get();
-    return query.docs.isEmpty;
+  // Generate a unique 8-character alphanumeric ID
+  Future<String> _generateUniqueId() async {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final random = Random.secure();
+    while (true) {
+      final id = List.generate(
+        8,
+        (_) => chars[random.nextInt(chars.length)],
+      ).join();
+
+      // Check uniqueness
+      final query = await _firestore
+          .collection(AppConstants.usersCollection)
+          .where('uniqueId', isEqualTo: id)
+          .get();
+      if (query.docs.isEmpty) return id;
+    }
   }
 
-  // Register with email, password, and unique username
+  // Register with email, password, and display name
   Future<UserModel> register({
     required String email,
     required String password,
-    required String username,
+    required String name,
   }) async {
-    // Check username availability first
-    final available = await isUsernameAvailable(username);
-    if (!available) {
-      throw Exception('Username is already taken');
-    }
-
     // Create auth account
     final credential = await _auth.createUserWithEmailAndPassword(
       email: email.trim(),
@@ -39,10 +46,14 @@ class AuthService {
 
     final user = credential.user!;
 
+    // Generate a unique ID for invitations
+    final uniqueId = await _generateUniqueId();
+
     // Create user document in Firestore
     final userModel = UserModel(
       uid: user.uid,
-      username: username.trim().toLowerCase(),
+      name: name.trim(),
+      uniqueId: uniqueId,
       email: email.trim(),
     );
 
@@ -92,5 +103,42 @@ class AuthService {
   // Logout
   Future<void> logout() async {
     await _auth.signOut();
+  }
+
+  Future<void> setManagerPin(String pin) async {
+    if (currentUser == null) throw Exception('Not authenticated');
+    if (!RegExp(r'^\d{4,8}$').hasMatch(pin)) {
+      throw Exception('PIN must be 4 to 8 digits');
+    }
+
+    final userDocRef = _firestore
+        .collection(AppConstants.usersCollection)
+        .doc(currentUser!.uid);
+
+    final salt = _auth.currentUser!.uid;
+    final hash = _hashPin(pin: pin, salt: salt);
+
+    await userDocRef.update({'managerPinSalt': salt, 'managerPinHash': hash});
+  }
+
+  Future<bool> verifyManagerPin(String pin) async {
+    if (currentUser == null) return false;
+
+    final doc = await _firestore
+        .collection(AppConstants.usersCollection)
+        .doc(currentUser!.uid)
+        .get();
+    if (!doc.exists) return false;
+
+    final user = UserModel.fromMap(doc.data()!);
+    if (!user.hasManagerPin) return false;
+
+    final hash = _hashPin(pin: pin, salt: user.managerPinSalt!);
+    return hash == user.managerPinHash;
+  }
+
+  String _hashPin({required String pin, required String salt}) {
+    final bytes = utf8.encode('$salt:$pin');
+    return sha256.convert(bytes).toString();
   }
 }

@@ -98,18 +98,13 @@ class BazarController extends GetxController {
       final user = _authController.currentUser.value!;
       final mess = _messController.currentMess.value!;
 
-      if (!user.isManager) {
-        final room = _roomController.rooms.firstWhereOrNull(
-          (r) => r.roomId == entry.roomId,
+      if (!_roomController.canEditBazarEntry(user.uid, entry.date)) {
+        _authController.showSnackbar(
+          'Permission Denied',
+          'You cannot edit this bazar entry',
+          isError: true,
         );
-        if (room == null || !_roomController.canEditBazar(user.uid, room)) {
-          _authController.showSnackbar(
-            'Permission Denied',
-            'You cannot edit bazar for this room right now',
-            isError: true,
-          );
-          return false;
-        }
+        return false;
       }
 
       await _firestoreService.updateBazarEntry(
@@ -123,6 +118,40 @@ class BazarController extends GetxController {
       _authController.showSnackbar(
         'Error',
         'Failed to update bazar entry',
+        isError: true,
+      );
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<bool> deleteBazarEntry(BazarModel entry) async {
+    try {
+      isLoading.value = true;
+      final user = _authController.currentUser.value!;
+      final mess = _messController.currentMess.value!;
+
+      if (!_roomController.canEditBazarEntry(user.uid, entry.date)) {
+        _authController.showSnackbar(
+          'Permission Denied',
+          'You cannot delete this bazar entry',
+          isError: true,
+        );
+        return false;
+      }
+
+      await _firestoreService.deleteBazarEntry(
+        messId: mess.messId,
+        entryId: entry.entryId,
+      );
+
+      _authController.showSnackbar('Success', 'Bazar entry deleted');
+      return true;
+    } catch (e) {
+      _authController.showSnackbar(
+        'Error',
+        'Failed to delete bazar entry',
         isError: true,
       );
       return false;

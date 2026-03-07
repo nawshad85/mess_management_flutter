@@ -101,12 +101,89 @@ class RoomController extends GetxController {
     }
   }
 
-  // Check if a user can edit bazar for a room
+  Future<bool> clearBazarSchedule({required String roomId}) async {
+    try {
+      isLoading.value = true;
+      final mess = _messController.currentMess.value!;
+
+      await _firestoreService.clearBazarSchedule(
+        messId: mess.messId,
+        roomId: roomId,
+      );
+
+      _authController.showSnackbar('Success', 'Bazar schedule removed');
+      return true;
+    } catch (e) {
+      _authController.showSnackbar(
+        'Error',
+        'Failed to remove schedule',
+        isError: true,
+      );
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  // Check if a user can edit bazar for a room (used for adding new entries)
   bool canEditBazar(String userId, RoomModel room) {
     final user = _authController.currentUser.value;
     if (user == null) return false;
     if (user.isManager) return true;
     return room.isBazarCurrentlyActive && room.memberIds.contains(userId);
+  }
+
+  /// Find the room whose bazar schedule covers the given [date].
+  RoomModel? findRoomForDate(DateTime date) {
+    final d = DateTime(date.year, date.month, date.day);
+    for (final room in rooms) {
+      if (room.bazarStartDate == null || room.bazarEndDate == null) continue;
+      final start = DateTime(
+        room.bazarStartDate!.year,
+        room.bazarStartDate!.month,
+        room.bazarStartDate!.day,
+      );
+      final end = DateTime(
+        room.bazarEndDate!.year,
+        room.bazarEndDate!.month,
+        room.bazarEndDate!.day,
+      );
+      if ((d.isAtSameMomentAs(start) || d.isAfter(start)) &&
+          (d.isAtSameMomentAs(end) || d.isBefore(end))) {
+        return room;
+      }
+    }
+    return null;
+  }
+
+  /// Check if a user can edit an existing bazar entry for a specific [entryDate].
+  ///
+  /// Rules:
+  /// - Manager can always edit any entry.
+  /// - A member can edit only if:
+  ///   1. They belong to the room whose bazar schedule covers [entryDate].
+  ///   2. The [entryDate] is not more than 1 day before today
+  ///      (i.e. today or yesterday are editable, 2+ days ago are not).
+  bool canEditBazarEntry(String userId, DateTime entryDate) {
+    final user = _authController.currentUser.value;
+    if (user == null) return false;
+    if (user.isManager) return true;
+
+    // Find the room whose bazar schedule covers the entry date
+    final room = findRoomForDate(entryDate);
+    if (room == null) return false;
+
+    // User must be a member of that room
+    if (!room.memberIds.contains(userId)) return false;
+
+    // Date restriction: entry date must be today or at most 1 day before
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final entryDay = DateTime(entryDate.year, entryDate.month, entryDate.day);
+    final oneDayBefore = today.subtract(const Duration(days: 1));
+
+    return entryDay.isAtSameMomentAs(oneDayBefore) ||
+        entryDay.isAfter(oneDayBefore);
   }
 
   // Get the room a user belongs to

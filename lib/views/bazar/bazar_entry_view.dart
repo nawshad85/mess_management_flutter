@@ -77,12 +77,22 @@ class _BazarEntryViewState extends State<BazarEntryView> {
                   ),
                 ),
               ),
-            ...entries.map(
-              (entry) => _BazarEntryCard(
+            ...entries.map((entry) {
+              final canEdit =
+                  user != null &&
+                  roomController.canEditBazarEntry(user.uid, entry.date);
+              return _BazarEntryCard(
                 entry: entry,
                 members: Get.find<MessController>().messMembers,
-              ),
-            ),
+                canEdit: canEdit,
+                onEdit: canEdit
+                    ? () => _showEditEntryDialog(context, entry)
+                    : null,
+                onDelete: canEdit
+                    ? () => _confirmDeleteEntry(context, entry)
+                    : null,
+              );
+            }),
           ],
         );
       }),
@@ -252,13 +262,244 @@ class _BazarEntryViewState extends State<BazarEntryView> {
       isScrollControlled: true,
     );
   }
+
+  void _showEditEntryDialog(BuildContext context, BazarModel entry) {
+    final items = <BazarItem>[...entry.items].obs;
+    final nameController = TextEditingController();
+    final costController = TextEditingController();
+
+    Get.bottomSheet(
+      Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: AppTheme.surfaceColor,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Edit Bazar Entry',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      DateFormat('MMM dd').format(entry.date),
+                      style: const TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Item input
+              Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(hintText: 'Item name'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: costController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(hintText: '৳ Cost'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: () {
+                      if (nameController.text.isNotEmpty &&
+                          costController.text.isNotEmpty) {
+                        items.add(
+                          BazarItem(
+                            name: nameController.text,
+                            cost: double.tryParse(costController.text) ?? 0,
+                          ),
+                        );
+                        nameController.clear();
+                        costController.clear();
+                      }
+                    },
+                    icon: const Icon(
+                      Icons.add_circle,
+                      color: AppTheme.primaryColor,
+                      size: 32,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Items list
+              Obx(
+                () => Column(
+                  children: items
+                      .asMap()
+                      .entries
+                      .map(
+                        (e) => Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.cardColor,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  e.value.name,
+                                  style: const TextStyle(
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                '৳${e.value.cost.toStringAsFixed(0)}',
+                                style: const TextStyle(
+                                  color: AppTheme.secondaryColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: () => items.removeAt(e.key),
+                                child: const Icon(
+                                  Icons.close,
+                                  size: 18,
+                                  color: AppTheme.errorColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Total & Submit
+              Obx(() {
+                final total = items.fold<double>(
+                  0,
+                  (sum, item) => sum + item.cost,
+                );
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Total: ৳${total.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: items.isEmpty
+                          ? null
+                          : () async {
+                              Get.back(); // close sheet immediately
+                              final updatedEntry = BazarModel(
+                                entryId: entry.entryId,
+                                roomId: entry.roomId,
+                                date: entry.date,
+                                items: items.toList(),
+                                totalCost: total,
+                                addedBy: entry.addedBy,
+                                createdAt: entry.createdAt,
+                              );
+                              await bazarController.updateBazarEntry(
+                                updatedEntry,
+                              );
+                            },
+                      child: const Text('Update'),
+                    ),
+                  ],
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+      isScrollControlled: true,
+    );
+  }
+
+  void _confirmDeleteEntry(BuildContext context, BazarModel entry) {
+    Get.dialog(
+      AlertDialog(
+        backgroundColor: AppTheme.surfaceColor,
+        title: const Text(
+          'Delete Entry',
+          style: TextStyle(color: AppTheme.textPrimary),
+        ),
+        content: Text(
+          'Are you sure you want to delete the bazar entry from ${DateFormat('MMM dd').format(entry.date)}?',
+          style: const TextStyle(color: AppTheme.textSecondary),
+        ),
+        actions: [
+          TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () async {
+              Get.back();
+              await bazarController.deleteBazarEntry(entry);
+            },
+            style: TextButton.styleFrom(foregroundColor: AppTheme.errorColor),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _BazarEntryCard extends StatelessWidget {
   final BazarModel entry;
   final List members;
+  final bool canEdit;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
-  const _BazarEntryCard({required this.entry, required this.members});
+  const _BazarEntryCard({
+    required this.entry,
+    required this.members,
+    this.canEdit = false,
+    this.onEdit,
+    this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -293,14 +534,16 @@ class _BazarEntryCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
+              const Spacer(),
               Text(
                 _getUsername(entry.addedBy),
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 12,
                   color: AppTheme.textSecondary,
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 6),
               Text(
                 '৳${entry.totalCost.toStringAsFixed(0)}',
                 style: const TextStyle(
@@ -309,6 +552,40 @@ class _BazarEntryCard extends StatelessWidget {
                   color: AppTheme.secondaryColor,
                 ),
               ),
+              if (canEdit) ...[
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: onEdit,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(
+                      Icons.edit,
+                      size: 18,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                GestureDetector(
+                  onTap: onDelete,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.errorColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(
+                      Icons.delete_outline,
+                      size: 18,
+                      color: AppTheme.errorColor,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 12),
@@ -345,7 +622,7 @@ class _BazarEntryCard extends StatelessWidget {
   String _getUsername(String uid) {
     try {
       final member = members.firstWhere((m) => m.uid == uid);
-      return '@${member.username}';
+      return member.name;
     } catch (_) {
       return '';
     }

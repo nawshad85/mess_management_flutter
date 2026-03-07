@@ -20,19 +20,15 @@ class Validators {
     return null;
   }
 
-  static String? validateUsername(String? value) {
+  static String? validateName(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'Username is required';
+      return 'Name is required';
     }
-    if (value.trim().length < 3) {
-      return 'Username must be at least 3 characters';
+    if (value.trim().length < 2) {
+      return 'Name must be at least 2 characters';
     }
-    if (value.trim().length > 20) {
-      return 'Username must be 20 characters or less';
-    }
-    final usernameRegex = RegExp(r'^[a-zA-Z0-9_]+$');
-    if (!usernameRegex.hasMatch(value.trim())) {
-      return 'Only letters, numbers, and underscores allowed';
+    if (value.trim().length > 30) {
+      return 'Name must be 30 characters or less';
     }
     return null;
   }

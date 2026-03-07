@@ -14,9 +14,9 @@ class AppConstants {
   static const String roleMember = 'member';
 
   // Mess constraints
-  static const int minRooms = 2;
-  static const int maxRooms = 5;
+  static const int minRooms = 1;
+  static const int maxRooms = 50;
   static const int minPeoplePerRoom = 1;
-  static const int maxPeoplePerRoom = 3;
-  static const int maxMessMembers = 10;
+  static const int maxPeoplePerRoom = 20;
+  static const int maxMessMembers = 100;
 }

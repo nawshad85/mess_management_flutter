@@ -23,10 +23,10 @@ class FirestoreService {
     return UserModel.fromMap(doc.data()!);
   }
 
-  Future<UserModel?> getUserByUsername(String username) async {
+  Future<UserModel?> getUserByUniqueId(String uniqueId) async {
     final query = await _firestore
         .collection(AppConstants.usersCollection)
-        .where('username', isEqualTo: username.trim().toLowerCase())
+        .where('uniqueId', isEqualTo: uniqueId.trim().toUpperCase())
         .get();
     if (query.docs.isEmpty) return null;
     return UserModel.fromMap(query.docs.first.data());
@@ -119,7 +119,7 @@ class FirestoreService {
     required String messId,
     required String messName,
     required String fromUserId,
-    required String fromUsername,
+    required String fromName,
     required String toUserId,
   }) async {
     final inviteId = _uuid.v4();
@@ -131,7 +131,7 @@ class FirestoreService {
           'messId': messId,
           'messName': messName,
           'fromUserId': fromUserId,
-          'fromUsername': fromUsername,
+          'fromName': fromName,
           'toUserId': toUserId,
           'status': 'pending',
           'createdAt': Timestamp.now(),
@@ -278,6 +278,164 @@ class FirestoreService {
         });
   }
 
+  Future<void> clearBazarSchedule({
+    required String messId,
+    required String roomId,
+  }) async {
+    await _firestore
+        .collection(AppConstants.messesCollection)
+        .doc(messId)
+        .collection(AppConstants.roomsCollection)
+        .doc(roomId)
+        .update({
+          'bazarStartDate': null,
+          'bazarEndDate': null,
+          'isActiveBazar': false,
+        });
+  }
+
+  Future<void> removeMemberFromMess({
+    required String messId,
+    required String userId,
+  }) async {
+    final batch = _firestore.batch();
+
+    final messRef = _firestore
+        .collection(AppConstants.messesCollection)
+        .doc(messId);
+
+    batch.update(messRef, {
+      'memberIds': FieldValue.arrayRemove([userId]),
+    });
+
+    final assignedRooms = await _firestore
+        .collection(AppConstants.messesCollection)
+        .doc(messId)
+        .collection(AppConstants.roomsCollection)
+        .where('memberIds', arrayContains: userId)
+        .get();
+
+    for (final roomDoc in assignedRooms.docs) {
+      batch.update(roomDoc.reference, {
+        'memberIds': FieldValue.arrayRemove([userId]),
+      });
+    }
+
+    final userRef = _firestore
+        .collection(AppConstants.usersCollection)
+        .doc(userId);
+    batch.update(userRef, {
+      'messId': null,
+      'roomId': null,
+      'role': AppConstants.roleMember,
+    });
+
+    await batch.commit();
+  }
+
+  Future<void> deleteMess(String messId) async {
+    final messRef = _firestore
+        .collection(AppConstants.messesCollection)
+        .doc(messId);
+
+    final messDoc = await messRef.get();
+    if (!messDoc.exists) return;
+
+    final mess = MessModel.fromMap(messDoc.data()!);
+
+    await _resetUsersForDeletedMess(mess.memberIds);
+
+    await _deleteInvitationsForMess(messId);
+
+    await _deleteCollectionDocs(
+      messRef.collection(AppConstants.messagesCollection),
+    );
+    await _deleteCollectionDocs(
+      messRef.collection(AppConstants.bazarEntriesCollection),
+    );
+    await _deleteCollectionDocs(
+      messRef.collection(AppConstants.mealEntriesCollection),
+    );
+    await _deleteCollectionDocs(
+      messRef.collection(AppConstants.monthlySummariesCollection),
+    );
+    await _deleteCollectionDocs(messRef.collection('monthlyDeposits'));
+    await _deleteCollectionDocs(
+      messRef.collection(AppConstants.roomsCollection),
+    );
+
+    await messRef.delete();
+  }
+
+  Future<void> _resetUsersForDeletedMess(List<String> userIds) async {
+    if (userIds.isEmpty) return;
+
+    WriteBatch batch = _firestore.batch();
+    int operations = 0;
+
+    for (final uid in userIds) {
+      final userRef = _firestore
+          .collection(AppConstants.usersCollection)
+          .doc(uid);
+      batch.update(userRef, {
+        'messId': null,
+        'roomId': null,
+        'role': AppConstants.roleMember,
+      });
+      operations++;
+
+      if (operations >= 450) {
+        await batch.commit();
+        batch = _firestore.batch();
+        operations = 0;
+      }
+    }
+
+    if (operations > 0) {
+      await batch.commit();
+    }
+  }
+
+  Future<void> _deleteInvitationsForMess(String messId) async {
+    final inviteSnap = await _firestore
+        .collection(AppConstants.invitationsCollection)
+        .where('messId', isEqualTo: messId)
+        .get();
+
+    if (inviteSnap.docs.isEmpty) return;
+
+    WriteBatch batch = _firestore.batch();
+    int operations = 0;
+
+    for (final doc in inviteSnap.docs) {
+      batch.delete(doc.reference);
+      operations++;
+
+      if (operations >= 450) {
+        await batch.commit();
+        batch = _firestore.batch();
+        operations = 0;
+      }
+    }
+
+    if (operations > 0) {
+      await batch.commit();
+    }
+  }
+
+  Future<void> _deleteCollectionDocs(CollectionReference collection) async {
+    while (true) {
+      final snap = await collection.limit(450).get();
+      if (snap.docs.isEmpty) break;
+
+      final batch = _firestore.batch();
+      for (final doc in snap.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
+  }
+
   // ============== BAZAR OPERATIONS ==============
 
   Future<void> addBazarEntry({
@@ -302,6 +460,18 @@ class FirestoreService {
         .collection(AppConstants.bazarEntriesCollection)
         .doc(entry.entryId)
         .update(entry.toMap());
+  }
+
+  Future<void> deleteBazarEntry({
+    required String messId,
+    required String entryId,
+  }) async {
+    await _firestore
+        .collection(AppConstants.messesCollection)
+        .doc(messId)
+        .collection(AppConstants.bazarEntriesCollection)
+        .doc(entryId)
+        .delete();
   }
 
   Stream<List<BazarModel>> bazarEntriesStream(String messId) {
@@ -442,6 +612,20 @@ class FirestoreService {
     return MonthlySummaryModel.fromMap(doc.data()!);
   }
 
+  Future<void> deleteMonthlySummary({
+    required String messId,
+    required int year,
+    required int month,
+  }) async {
+    final docId = '${year}_$month';
+    await _firestore
+        .collection(AppConstants.messesCollection)
+        .doc(messId)
+        .collection(AppConstants.monthlySummariesCollection)
+        .doc(docId)
+        .delete();
+  }
+
   Future<List<BazarModel>> getBazarEntriesForMonth({
     required String messId,
     required int year,
@@ -508,5 +692,38 @@ class FirestoreService {
     if (!doc.exists) return {};
     final raw = doc.data()?['deposits'] as Map<String, dynamic>? ?? {};
     return raw.map((k, v) => MapEntry(k, (v as num).toDouble()));
+  }
+
+  /// Toggle a single member's settlement status in the summary document.
+  Future<void> updateSettlement({
+    required String messId,
+    required int year,
+    required int month,
+    required String uid,
+    required bool paid,
+  }) async {
+    final docId = '${year}_$month';
+    await _firestore
+        .collection(AppConstants.messesCollection)
+        .doc(messId)
+        .collection(AppConstants.monthlySummariesCollection)
+        .doc(docId)
+        .update({'settlements.$uid': paid});
+  }
+
+  Future<void> updateActualPayment({
+    required String messId,
+    required int year,
+    required int month,
+    required String uid,
+    required double amount,
+  }) async {
+    final docId = '${year}_$month';
+    await _firestore
+        .collection(AppConstants.messesCollection)
+        .doc(messId)
+        .collection(AppConstants.monthlySummariesCollection)
+        .doc(docId)
+        .update({'actualPayments.$uid': amount});
   }
 }

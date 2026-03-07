@@ -180,18 +180,16 @@ class _MealEntryViewState extends State<MealEntryView> {
           ),
           const SizedBox(height: 4),
 
-          // Weekday labels
+          // Weekday labels — use Expanded so they flex on any screen width.
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
                 .map(
-                  (d) => SizedBox(
-                    width: 40,
+                  (d) => Expanded(
                     child: Text(
                       d,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.textSecondary,
                       ),
@@ -315,6 +313,8 @@ class _MealEntryViewState extends State<MealEntryView> {
                     children: [
                       Text(
                         DateFormat('EEEE, MMM dd, yyyy').format(_selectedDate!),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -406,7 +406,9 @@ class _MealEntryViewState extends State<MealEntryView> {
                                 backgroundColor: AppTheme.primaryColor
                                     .withValues(alpha: 0.2),
                                 child: Text(
-                                  member.username[0].toUpperCase(),
+                                  member.name.isNotEmpty
+                                      ? member.name[0].toUpperCase()
+                                      : '?',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: AppTheme.primaryColor,
@@ -417,7 +419,7 @@ class _MealEntryViewState extends State<MealEntryView> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  '@${member.username}',
+                                  member.name,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w500,
                                     color: AppTheme.textPrimary,
@@ -618,7 +620,9 @@ class _MealEditorSheetState extends State<_MealEditorSheet> {
                           alpha: 0.2,
                         ),
                         child: Text(
-                          member.username[0].toUpperCase(),
+                          member.name.isNotEmpty
+                              ? member.name[0].toUpperCase()
+                              : '?',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: AppTheme.primaryColor,
@@ -629,7 +633,7 @@ class _MealEditorSheetState extends State<_MealEditorSheet> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          '@${member.username}',
+                          member.name,
                           style: const TextStyle(
                             fontWeight: FontWeight.w500,
                             color: AppTheme.textPrimary,

@@ -11,7 +11,7 @@ class RegisterView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final formKey = GlobalKey<FormState>();
-    final usernameController = TextEditingController();
+    final nameController = TextEditingController();
     final emailController = TextEditingController();
     final passwordController = TextEditingController();
     final confirmPasswordController = TextEditingController();
@@ -72,12 +72,12 @@ class RegisterView extends StatelessWidget {
                   child: Column(
                     children: [
                       TextFormField(
-                        controller: usernameController,
-                        validator: Validators.validateUsername,
+                        controller: nameController,
+                        validator: Validators.validateName,
                         decoration: const InputDecoration(
-                          hintText: 'Username',
+                          hintText: 'Full Name',
                           prefixIcon: Icon(
-                            Icons.alternate_email,
+                            Icons.person_outlined,
                             color: AppTheme.textSecondary,
                           ),
                         ),
@@ -161,7 +161,7 @@ class RegisterView extends StatelessWidget {
                                           .register(
                                             email: emailController.text,
                                             password: passwordController.text,
-                                            username: usernameController.text,
+                                            name: nameController.text,
                                           );
                                       if (success) {
                                         Get.offAllNamed(AppRoutes.home);

@@ -103,6 +103,40 @@ lib/
    flutter run
    ```
 
+## ⏰ Scheduled Cleanup (Cloud Functions)
+
+This project now includes a scheduled Firebase Cloud Function that automatically deletes old monthly data and keeps only the latest 3 months:
+
+- `messes/{messId}/monthlySummaries`
+- `messes/{messId}/monthlyDeposits`
+
+### Deploy steps
+
+1. Install Firebase CLI (if not installed):
+   ```bash
+   npm install -g firebase-tools
+   ```
+
+2. Login and select your Firebase project from the repository root:
+   ```bash
+   firebase login
+   firebase use --add
+   ```
+
+3. Install functions dependencies:
+   ```bash
+   cd functions
+   npm install
+   cd ..
+   ```
+
+4. Deploy functions:
+   ```bash
+   firebase deploy --only functions
+   ```
+
+The scheduled function is `cleanupOldMonthlyData` in `functions/index.js`.
+
 ## 📱 Screenshots
 
 *Coming soon*
@@ -110,7 +144,3 @@ lib/
 ## 📄 License
 
 This project is open source and available under the [MIT License](LICENSE).
-
----
-
-**Built with ❤️ using Flutter & Firebase**

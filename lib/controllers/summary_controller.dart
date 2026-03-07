@@ -152,7 +152,7 @@ class SummaryController extends GetxController {
         memberSummaries.add(
           MemberSummary(
             uid: member.uid,
-            username: member.username,
+            name: member.name,
             moneyPutIn: putIn,
             totalMeals: effectiveMeals,
             mealCost: double.parse(mealCost.toStringAsFixed(2)),
@@ -190,6 +190,127 @@ class SummaryController extends GetxController {
       return false;
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  /// Manager marks/unmarks a member's payment as settled.
+  Future<void> toggleSettlement({
+    required String uid,
+    required int year,
+    required int month,
+    required bool paid,
+  }) async {
+    final mess = _messController.currentMess.value;
+    final user = _authController.currentUser.value;
+    if (mess == null || user == null || !user.isManager) return;
+    try {
+      await _firestoreService.updateSettlement(
+        messId: mess.messId,
+        year: year,
+        month: month,
+        uid: uid,
+        paid: paid,
+      );
+      // Optimistically update in-memory
+      final current = currentSummary.value;
+      if (current != null) {
+        final updated = Map<String, bool>.from(current.settlements);
+        updated[uid] = paid;
+        currentSummary.value = MonthlySummaryModel(
+          month: current.month,
+          year: current.year,
+          generatedBy: current.generatedBy,
+          generatedAt: current.generatedAt,
+          totalBazarCost: current.totalBazarCost,
+          totalMeals: current.totalMeals,
+          costPerMeal: current.costPerMeal,
+          fixedMeal: current.fixedMeal,
+          members: current.members,
+          settlements: updated,
+          actualPayments: current.actualPayments,
+        );
+      }
+    } catch (_) {
+      _authController.showSnackbar(
+        'Error',
+        'Failed to update settlement',
+        isError: true,
+      );
+    }
+  }
+
+  /// Delete the monthly summary for a given month (manager only).
+  Future<bool> deleteSummary({required int year, required int month}) async {
+    final mess = _messController.currentMess.value;
+    final user = _authController.currentUser.value;
+    if (mess == null || user == null || !user.isManager) return false;
+
+    try {
+      isLoading.value = true;
+      await _firestoreService.deleteMonthlySummary(
+        messId: mess.messId,
+        year: year,
+        month: month,
+      );
+      currentSummary.value = null;
+      _authController.showSnackbar('Success', 'Monthly summary deleted');
+      return true;
+    } catch (_) {
+      _authController.showSnackbar(
+        'Error',
+        'Failed to delete summary',
+        isError: true,
+      );
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  /// Save the actual amount paid/received for a member (manager only).
+  Future<void> updateActualPayment({
+    required String uid,
+    required int year,
+    required int month,
+    required double amount,
+  }) async {
+    final mess = _messController.currentMess.value;
+    final user = _authController.currentUser.value;
+    if (mess == null || user == null || !user.isManager) return;
+    try {
+      await _firestoreService.updateActualPayment(
+        messId: mess.messId,
+        year: year,
+        month: month,
+        uid: uid,
+        amount: amount,
+      );
+      // Optimistic update
+      final current = currentSummary.value;
+      if (current != null) {
+        final updated = Map<String, double>.from(current.actualPayments);
+        updated[uid] = amount;
+        currentSummary.value = MonthlySummaryModel(
+          month: current.month,
+          year: current.year,
+          generatedBy: current.generatedBy,
+          generatedAt: current.generatedAt,
+          totalBazarCost: current.totalBazarCost,
+          totalMeals: current.totalMeals,
+          costPerMeal: current.costPerMeal,
+          fixedMeal: current.fixedMeal,
+          members: current.members,
+          settlements: current.settlements,
+          actualPayments: updated,
+        );
+      }
+      _authController.showSnackbar('Saved', 'Payment recorded');
+    } catch (_) {
+      _authController.showSnackbar(
+        'Error',
+        'Failed to save payment',
+        isError: true,
+      );
     }
   }
 }

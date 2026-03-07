@@ -5,6 +5,7 @@ import 'package:mess_manager/controllers/mess_controller.dart';
 import 'package:mess_manager/controllers/room_controller.dart';
 import 'package:mess_manager/controllers/bazar_controller.dart';
 import 'package:mess_manager/controllers/meal_controller.dart';
+import 'package:mess_manager/models/user_model.dart';
 import 'package:mess_manager/app/routes/app_routes.dart';
 import 'package:mess_manager/app/theme/app_theme.dart';
 import 'package:intl/intl.dart';
@@ -36,7 +37,7 @@ class MessDashboardView extends StatelessWidget {
                     tooltip: 'Invite Member',
                   ),
                   IconButton(
-                    icon: const Icon(Icons.meeting_room_rounded),
+                    icon: const Icon(Icons.tune_rounded),
                     onPressed: () => Get.toNamed(AppRoutes.roomManagement),
                     tooltip: 'Manage Rooms',
                   ),
@@ -178,6 +179,8 @@ class MessDashboardView extends StatelessWidget {
             const SizedBox(height: 12),
             Obx(() {
               final members = messController.messMembers;
+              final isManager =
+                  authController.currentUser.value?.isManager == true;
               if (members.isEmpty) {
                 return const Text(
                   'No members yet',
@@ -210,7 +213,9 @@ class MessDashboardView extends StatelessWidget {
                             alpha: 0.2,
                           ),
                           child: Text(
-                            member.username[0].toUpperCase(),
+                            member.name.isNotEmpty
+                                ? member.name[0].toUpperCase()
+                                : '?',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               color: AppTheme.primaryColor,
@@ -224,11 +229,14 @@ class MessDashboardView extends StatelessWidget {
                             children: [
                               Row(
                                 children: [
-                                  Text(
-                                    '@${member.username}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: AppTheme.textPrimary,
+                                  Flexible(
+                                    child: Text(
+                                      member.name,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.textPrimary,
+                                      ),
                                     ),
                                   ),
                                   if (member.isManager)
@@ -286,6 +294,21 @@ class MessDashboardView extends StatelessWidget {
                             ),
                           ],
                         ),
+                        if (isManager && !member.isManager) ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            onPressed: () => _showRemoveMemberConfirmation(
+                              context,
+                              messController,
+                              member,
+                            ),
+                            tooltip: 'Remove Member',
+                            icon: const Icon(
+                              Icons.person_remove_rounded,
+                              color: AppTheme.errorColor,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   );
@@ -426,20 +449,137 @@ class MessDashboardView extends StatelessWidget {
           style: TextStyle(color: AppTheme.textSecondary),
         ),
         actions: [
-          TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () async {
+              await _closeDialogSafely();
+            },
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.errorColor,
             ),
             onPressed: () async {
-              Get.back();
-              await messController.resetAllEntries();
+              await _closeDialogSafely();
+              await Future.delayed(const Duration(milliseconds: 100));
+              final pin = await _askForConfirmationPin(context);
+              if (pin == null) return;
+              await messController.resetAllEntries(confirmationPin: pin);
             },
             child: const Text('Reset Everything'),
           ),
         ],
       ),
     );
+  }
+
+  void _showRemoveMemberConfirmation(
+    BuildContext context,
+    MessController messController,
+    UserModel member,
+  ) {
+    Get.dialog(
+      AlertDialog(
+        backgroundColor: AppTheme.surfaceColor,
+        title: const Row(
+          children: [
+            Icon(Icons.person_remove_rounded, color: AppTheme.errorColor),
+            SizedBox(width: 8),
+            Text(
+              'Remove Member',
+              style: TextStyle(color: AppTheme.textPrimary),
+            ),
+          ],
+        ),
+        content: Text(
+          'Remove ${member.name} from this mess?\n\nThis will also unassign them from any room.',
+          style: const TextStyle(color: AppTheme.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await _closeDialogSafely();
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.errorColor,
+            ),
+            onPressed: () async {
+              await _closeDialogSafely();
+              await Future.delayed(const Duration(milliseconds: 100));
+              final pin = await _askForConfirmationPin(context);
+              if (pin == null) return;
+              await messController.removeMember(member, confirmationPin: pin);
+            },
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<String?> _askForConfirmationPin(BuildContext context) async {
+    final authController = Get.find<AuthController>();
+    final pinController = TextEditingController();
+    String? enteredPin;
+
+    await Get.dialog(
+      AlertDialog(
+        backgroundColor: AppTheme.surfaceColor,
+        title: const Text(
+          'Enter Confirmation PIN',
+          style: TextStyle(color: AppTheme.textPrimary),
+        ),
+        content: TextField(
+          controller: pinController,
+          keyboardType: TextInputType.number,
+          obscureText: true,
+          maxLength: 8,
+          decoration: const InputDecoration(
+            hintText: 'Manager PIN',
+            counterText: '',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await _closeDialogSafely();
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final pin = pinController.text.trim();
+              if (!RegExp(r'^\d{4,8}$').hasMatch(pin)) {
+                authController.showSnackbar(
+                  'Error',
+                  'PIN must be 4 to 8 digits',
+                  isError: true,
+                );
+                return;
+              }
+              enteredPin = pin;
+              await _closeDialogSafely();
+            },
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+
+    await Future.delayed(const Duration(milliseconds: 120));
+    pinController.dispose();
+    return enteredPin;
+  }
+
+  Future<void> _closeDialogSafely() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    await Future.delayed(const Duration(milliseconds: 80));
+    if (Get.isDialogOpen ?? false) {
+      Get.back();
+    }
   }
 }
 
@@ -470,17 +610,23 @@ class _StatCard extends StatelessWidget {
           children: [
             Icon(icon, color: color, size: 24),
             const SizedBox(height: 8),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: color,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
               ),
             ),
             const SizedBox(height: 4),
             Text(
               title,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontSize: 11,
                 color: AppTheme.textSecondary,

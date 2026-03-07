@@ -23,7 +23,7 @@ class _ChatViewState extends State<ChatView> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
 
-  /// Tracked mentions: uid -> username
+  /// Tracked mentions: uid -> name
   final Map<String, String> _mentionedUsers = {};
 
   /// Whether the @mention popup is visible.
@@ -97,9 +97,9 @@ class _ChatViewState extends State<ChatView> {
     final cursorPos = _messageController.selection.baseOffset;
     final before = text.substring(0, _mentionStartIndex);
     final after = text.substring(cursorPos);
-    final mention = '@${member.username} ';
+    final mention = '@${member.name} ';
 
-    _mentionedUsers[member.uid] = member.username;
+    _mentionedUsers[member.uid] = member.name;
 
     final newText = '$before$mention$after';
     _messageController.text = newText;
@@ -137,7 +137,7 @@ class _ChatViewState extends State<ChatView> {
         .where(
           (m) =>
               m.uid != currentUid &&
-              m.username.toLowerCase().contains(_mentionQuery),
+              m.name.toLowerCase().contains(_mentionQuery),
         )
         .toList();
   }
@@ -317,7 +317,9 @@ class _ChatViewState extends State<ChatView> {
                       alpha: 0.2,
                     ),
                     child: Text(
-                      member.username[0].toUpperCase(),
+                      member.name.isNotEmpty
+                          ? member.name[0].toUpperCase()
+                          : '?',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: AppTheme.primaryColor,
@@ -330,7 +332,7 @@ class _ChatViewState extends State<ChatView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '@${member.username}',
+                        member.name,
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           color: AppTheme.textPrimary,
