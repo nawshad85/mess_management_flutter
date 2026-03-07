@@ -11,6 +11,7 @@ import 'package:mess_manager/views/bazar/bazar_entry_view.dart';
 import 'package:mess_manager/views/bazar/meal_entry_view.dart';
 import 'package:mess_manager/views/chat/chat_view.dart';
 import 'package:mess_manager/views/summary/monthly_summary_view.dart';
+import 'package:mess_manager/views/notice/notice_view.dart';
 
 class AppRoutes {
   static const String splash = '/';
@@ -25,6 +26,7 @@ class AppRoutes {
   static const String mealEntry = '/meal-entry';
   static const String chat = '/chat';
   static const String monthlySummary = '/monthly-summary';
+  static const String noticeBoard = '/notice-board';
 
   static final List<GetPage> pages = [
     GetPage(name: splash, page: () => const SplashView()),
@@ -39,5 +41,6 @@ class AppRoutes {
     GetPage(name: mealEntry, page: () => const MealEntryView()),
     GetPage(name: chat, page: () => const ChatView()),
     GetPage(name: monthlySummary, page: () => const MonthlySummaryView()),
+    GetPage(name: noticeBoard, page: () => const NoticeView()),
   ];
 }

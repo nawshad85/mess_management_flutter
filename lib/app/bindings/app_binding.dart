@@ -6,6 +6,7 @@ import 'package:mess_manager/controllers/bazar_controller.dart';
 import 'package:mess_manager/controllers/meal_controller.dart';
 import 'package:mess_manager/controllers/chat_controller.dart';
 import 'package:mess_manager/controllers/summary_controller.dart';
+import 'package:mess_manager/controllers/notice_controller.dart';
 
 class AppBinding extends Bindings {
   @override
@@ -17,5 +18,6 @@ class AppBinding extends Bindings {
     Get.put(MealController(), permanent: true);
     Get.put(ChatController(), permanent: true);
     Get.put(SummaryController(), permanent: true);
+    Get.put(NoticeController(), permanent: true);
   }
 }

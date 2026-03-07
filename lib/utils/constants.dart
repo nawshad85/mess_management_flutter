@@ -6,6 +6,7 @@ class AppConstants {
   static const String bazarEntriesCollection = 'bazarEntries';
   static const String mealEntriesCollection = 'mealEntries';
   static const String messagesCollection = 'messages';
+  static const String noticesCollection = 'notices';
   static const String invitationsCollection = 'invitations';
   static const String monthlySummariesCollection = 'monthlySummaries';
 
