@@ -190,9 +190,22 @@ class _RoomCard extends StatelessWidget {
                       color: AppTheme.textSecondary,
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      m.name,
-                      style: const TextStyle(color: AppTheme.textPrimary),
+                    Expanded(
+                      child: Text(
+                        m.name,
+                        style: const TextStyle(color: AppTheme.textPrimary),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => _confirmUnassign(context, m),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        child: Icon(
+                          Icons.person_remove_outlined,
+                          size: 18,
+                          color: AppTheme.errorColor,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -335,6 +348,45 @@ class _RoomCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _confirmUnassign(BuildContext context, dynamic member) {
+    Get.dialog(
+      AlertDialog(
+        backgroundColor: AppTheme.surfaceColor,
+        title: const Text(
+          'Unassign Member',
+          style: TextStyle(color: AppTheme.textPrimary),
+        ),
+        content: Text(
+          'Remove ${member.name} from Room ${room.roomNumber}?',
+          style: const TextStyle(color: AppTheme.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.errorColor,
+            ),
+            onPressed: () async {
+              Get.back();
+              await roomController.unassignMemberFromRoom(
+                roomId: room.roomId,
+                userId: member.uid,
+                userName: member.name,
+              );
+            },
+            child: const Text(
+              'Unassign',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
       ),
     );
   }

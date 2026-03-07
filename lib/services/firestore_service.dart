@@ -246,6 +246,28 @@ class FirestoreService {
         .update({'roomId': roomId});
   }
 
+  Future<void> unassignMemberFromRoom({
+    required String messId,
+    required String roomId,
+    required String userId,
+  }) async {
+    // Remove user from the room's memberIds
+    await _firestore
+        .collection(AppConstants.messesCollection)
+        .doc(messId)
+        .collection(AppConstants.roomsCollection)
+        .doc(roomId)
+        .update({
+          'memberIds': FieldValue.arrayRemove([userId]),
+        });
+
+    // Clear user's roomId
+    await _firestore
+        .collection(AppConstants.usersCollection)
+        .doc(userId)
+        .update({'roomId': null});
+  }
+
   Future<void> setBazarSchedule({
     required String messId,
     required String roomId,

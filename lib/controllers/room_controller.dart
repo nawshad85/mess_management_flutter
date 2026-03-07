@@ -125,6 +125,48 @@ class RoomController extends GetxController {
     }
   }
 
+  Future<bool> unassignMemberFromRoom({
+    required String roomId,
+    required String userId,
+    required String userName,
+  }) async {
+    try {
+      isLoading.value = true;
+      final user = _authController.currentUser.value;
+      final mess = _messController.currentMess.value;
+
+      if (user == null || mess == null || !user.isManager) {
+        _authController.showSnackbar(
+          'Error',
+          'Only the manager can unassign members',
+          isError: true,
+        );
+        return false;
+      }
+
+      await _firestoreService.unassignMemberFromRoom(
+        messId: mess.messId,
+        roomId: roomId,
+        userId: userId,
+      );
+
+      _authController.showSnackbar(
+        'Success',
+        '$userName unassigned from room',
+      );
+      return true;
+    } catch (e) {
+      _authController.showSnackbar(
+        'Error',
+        'Failed to unassign member',
+        isError: true,
+      );
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   // Check if a user can edit bazar for a room (used for adding new entries)
   bool canEditBazar(String userId, RoomModel room) {
     final user = _authController.currentUser.value;
