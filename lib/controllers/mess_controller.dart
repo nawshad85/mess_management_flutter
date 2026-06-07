@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:get/get.dart';
 import 'package:mess_manager/controllers/auth_controller.dart';
 import 'package:mess_manager/models/mess_model.dart';
@@ -302,7 +303,7 @@ class MessController extends GetxController {
     } catch (e) {
       _authController.showSnackbar(
         'Error',
-        'Failed to remove member',
+        'Failed to remove member: ${_describeError(e)}',
         isError: true,
       );
       return false;
@@ -358,5 +359,20 @@ class MessController extends GetxController {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  /// Produces a concise, human-readable description of an error.
+  ///
+  /// For Firebase errors this surfaces the underlying code/message (e.g.
+  /// `permission-denied`) instead of a generic failure string, which makes
+  /// permission-rule problems diagnosable from the UI.
+  String _describeError(Object error) {
+    if (error is FirebaseException) {
+      final message = error.message;
+      return message != null && message.isNotEmpty
+          ? '${error.code} (${message.trim()})'
+          : error.code;
+    }
+    return error.toString();
   }
 }

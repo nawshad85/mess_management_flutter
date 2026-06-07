@@ -681,7 +681,7 @@ class _MonthlySummaryViewState extends State<MonthlySummaryView> {
                     ),
                     Switch(
                       value: _fixedMealEnabled,
-                      activeColor: AppTheme.accentColor,
+                      activeThumbColor: AppTheme.accentColor,
                       onChanged: (v) => setState(() => _fixedMealEnabled = v),
                     ),
                   ],

@@ -1,0 +1,146 @@
+rules_version = '3';
+
+// Security rules for the Mess Manager app.
+//
+// Data model:
+//   users/{uid}                         -> user profile (messId, role, roomId, ...)
+//   messes/{messId}                     -> mess (managerId, memberIds[], ...)
+//     rooms/{roomId}
+//     bazarEntries/{entryId}
+//     mealEntries/{entryId}
+//     messages/{messageId}
+//     notices/{noticeId}
+//     monthlySummaries/{docId}
+//     monthlyDeposits/{docId}
+//   invitations/{inviteId}              -> top-level invitations
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- helpers ----------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function messData(messId) {
+      return get(/databases/$(database)/documents/messes/$(messId)).data;
+    }
+
+    function messExists(messId) {
+      return exists(/databases/$(database)/documents/messes/$(messId));
+    }
+
+    // True if the signed-in user is the manager of the given mess.
+    function isManagerOf(messId) {
+      return isSignedIn()
+        && messId != null
+        && messExists(messId)
+        && messData(messId).managerId == request.auth.uid;
+    }
+
+    // True if the signed-in user is a member of the given mess.
+    function isMemberOf(messId) {
+      return isSignedIn()
+        && messId != null
+        && messExists(messId)
+        && request.auth.uid in messData(messId).memberIds;
+    }
+
+    // ---------- users ----------
+    match /users/{userId} {
+      // Any signed-in user can read profiles (needed for member lists,
+      // invite-by-id lookups, and resolving names).
+      allow read: if isSignedIn();
+
+      // A user may create/update their own document (registration,
+      // accepting an invite, setting their manager PIN, etc.).
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
+
+      // A manager may update a member's document that currently belongs to a
+      // mess they manage. This covers room assignment/unassignment and
+      // removing a member (which clears messId/roomId and resets role).
+      // Checking the *existing* messId is sufficient and avoids evaluating
+      // get() on a null/changed messId.
+      allow update: if isManagerOf(resource.data.messId);
+    }
+
+    // ---------- messes ----------
+    match /messes/{messId} {
+      allow read: if isSignedIn();
+
+      // Creator must set themselves as the manager.
+      allow create: if isSignedIn()
+        && request.resource.data.managerId == request.auth.uid
+        && request.auth.uid in request.resource.data.memberIds;
+
+      // Manager has full update rights (including arrayRemove to remove a
+      // member from memberIds). Additionally, any signed-in user may add
+      // ONLY themselves to memberIds (accepting an invitation) while keeping
+      // all existing members intact and without changing the managerId.
+      allow update: if isManagerOf(messId)
+        || (
+          isSignedIn()
+          && request.resource.data.managerId == resource.data.managerId
+          && request.resource.data.memberIds.hasAll(resource.data.memberIds)
+          && request.resource.data.memberIds.removeAll(resource.data.memberIds) == [request.auth.uid]
+        );
+
+      allow delete: if isManagerOf(messId);
+
+      // ---- subcollections ----
+      match /rooms/{roomId} {
+        allow read: if isMemberOf(messId);
+        allow write: if isManagerOf(messId);
+      }
+
+      match /bazarEntries/{entryId} {
+        allow read: if isMemberOf(messId);
+        allow write: if isMemberOf(messId);
+      }
+
+      match /mealEntries/{entryId} {
+        allow read: if isMemberOf(messId);
+        allow write: if isMemberOf(messId);
+      }
+
+      match /messages/{messageId} {
+        // Any mess member can read, send, mark-as-read, edit, and delete
+        // chat messages (the app's group chat lets members manage messages).
+        allow read, write: if isMemberOf(messId);
+      }
+
+      match /notices/{noticeId} {
+        allow read: if isMemberOf(messId);
+        allow write: if isManagerOf(messId);
+      }
+
+      match /monthlySummaries/{docId} {
+        allow read: if isMemberOf(messId);
+        allow write: if isManagerOf(messId);
+      }
+
+      match /monthlyDeposits/{docId} {
+        allow read: if isMemberOf(messId);
+        allow write: if isManagerOf(messId);
+      }
+    }
+
+    // ---------- invitations ----------
+    match /invitations/{inviteId} {
+      // Reads are allowed for any signed-in user. This is required because the
+      // app queries invitations both by `toUserId` (a user's pending invites)
+      // and by `messId` (cleanup when a manager deletes a mess); a stricter
+      // per-document rule would reject the messId-based list query.
+      allow read: if isSignedIn();
+
+      // The inviter creates the invitation.
+      allow create: if isSignedIn()
+        && request.resource.data.fromUserId == request.auth.uid;
+
+      // The invited user can accept/decline; the inviter (manager) can manage
+      // (e.g. cleanup when deleting a mess).
+      allow update, delete: if isSignedIn()
+        && (resource.data.toUserId == request.auth.uid
+            || resource.data.fromUserId == request.auth.uid);
+    }
+  }
+}
