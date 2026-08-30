@@ -1,19 +1,26 @@
 import 'dart:io';
 
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show appFlavor;
 import 'package:in_app_update/in_app_update.dart' as play;
+import 'package:mess_manager/models/android_apk_target.dart';
 import 'package:mess_manager/models/available_app_update.dart';
 import 'package:ota_update/ota_update.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 typedef AppUpdateProgressCallback = void Function(AppUpdateProgress progress);
+typedef AndroidAbiProvider = Future<List<String>> Function();
 
 class AppUpdateService {
-  AppUpdateService({FirebaseRemoteConfig? remoteConfig})
-    : _remoteConfig = remoteConfig ?? FirebaseRemoteConfig.instance;
+  AppUpdateService({
+    FirebaseRemoteConfig? remoteConfig,
+    AndroidAbiProvider? androidAbiProvider,
+  }) : _remoteConfig = remoteConfig ?? FirebaseRemoteConfig.instance,
+       _androidAbiProvider =
+           androidAbiProvider ?? AppUpdateService._readSupportedAndroidAbis;
 
   static const _defaultTitle = 'Update available';
   static const _defaultMessage =
@@ -22,15 +29,24 @@ class AppUpdateService {
   static const Map<String, Object> _remoteDefaults = {
     'android_update_enabled': true,
     'android_latest_build': 0,
+    'android_play_latest_build': 0,
     'android_latest_version': '',
     'android_update_title': _defaultTitle,
     'android_update_message': _defaultMessage,
     'android_apk_url': '',
     'android_apk_sha256': '',
+    'android_split_per_abi': false,
+    'android_apk_url_armeabi_v7a': '',
+    'android_apk_sha256_armeabi_v7a': '',
+    'android_apk_url_arm64_v8a': '',
+    'android_apk_sha256_arm64_v8a': '',
+    'android_apk_url_x86_64': '',
+    'android_apk_sha256_x86_64': '',
     'android_play_store_url': '',
   };
 
   final FirebaseRemoteConfig _remoteConfig;
+  final AndroidAbiProvider _androidAbiProvider;
   play.AppUpdateInfo? _playUpdateInfo;
 
   Future<AvailableAppUpdate?> checkForUpdate() async {
@@ -53,21 +69,14 @@ class AppUpdateService {
       );
     }
 
-    if (settings.latestBuild <= installedBuild) return null;
+    if (settings.latestBuild <= 0) return null;
+    final installedBaseBuild = baseBuildFromFlutterSplitVersionCode(
+      installedBuild,
+    );
+    if (settings.latestBuild <= installedBaseBuild) return null;
 
-    final apkUri = _validHttpsUri(settings.apkUrl);
-    if (apkUri == null) {
-      debugPrint(
-        'App update is available, but android_apk_url is missing or is not HTTPS.',
-      );
-      return null;
-    }
-
-    final checksum = settings.apkSha256.toLowerCase();
-    if (checksum.isNotEmpty && !RegExp(r'^[a-f0-9]{64}$').hasMatch(checksum)) {
-      debugPrint(
-        'App update is available, but android_apk_sha256 is not a valid SHA-256 value.',
-      );
+    final directApk = await _resolveDirectApk(settings);
+    if (directApk == null || directApk.versionCode <= installedBuild) {
       return null;
     }
 
@@ -76,11 +85,12 @@ class AppUpdateService {
       installedVersion: packageInfo.version,
       installedBuild: installedBuild,
       availableVersion: settings.latestVersion,
-      availableBuild: settings.latestBuild,
+      availableBuild: directApk.versionCode,
       title: settings.title,
       message: settings.message,
-      apkUri: apkUri,
-      apkSha256: checksum.isEmpty ? null : checksum,
+      apkUri: directApk.uri,
+      apkSha256: directApk.sha256,
+      apkAbi: directApk.abi,
       storeUri: _playStoreUri(settings.playStoreUrl, packageInfo.packageName),
     );
   }
@@ -125,13 +135,103 @@ class AppUpdateService {
     return _RemoteUpdateSettings(
       enabled: _remoteConfig.getBool('android_update_enabled'),
       latestBuild: _remoteConfig.getInt('android_latest_build'),
+      playLatestBuild: _remoteConfig.getInt('android_play_latest_build'),
       latestVersion: _remoteConfig.getString('android_latest_version').trim(),
       title: configuredTitle.isEmpty ? _defaultTitle : configuredTitle,
       message: configuredMessage.isEmpty ? _defaultMessage : configuredMessage,
       apkUrl: _remoteConfig.getString('android_apk_url').trim(),
       apkSha256: _remoteConfig.getString('android_apk_sha256').trim(),
+      splitPerAbi: _remoteConfig.getBool('android_split_per_abi'),
+      splitApks: {
+        for (final abi in AndroidApkAbi.values)
+          abi: _RemoteApkSettings(
+            url: _remoteConfig.getString(abi.remoteUrlKey).trim(),
+            sha256: _remoteConfig.getString(abi.remoteSha256Key).trim(),
+          ),
+      },
       playStoreUrl: _remoteConfig.getString('android_play_store_url').trim(),
     );
+  }
+
+  Future<_ResolvedDirectApk?> _resolveDirectApk(
+    _RemoteUpdateSettings settings,
+  ) async {
+    if (!settings.splitPerAbi) {
+      return _validateDirectApk(
+        url: settings.apkUrl,
+        sha256: settings.apkSha256,
+        urlKey: 'android_apk_url',
+        sha256Key: 'android_apk_sha256',
+        versionCode: settings.latestBuild,
+      );
+    }
+
+    List<String> supportedAbis;
+    try {
+      supportedAbis = await _androidAbiProvider();
+    } catch (error) {
+      debugPrint('The device ABI could not be detected: $error');
+      return null;
+    }
+
+    final abi = selectPreferredAndroidApkAbi(supportedAbis);
+    if (abi == null) {
+      debugPrint(
+        'No compatible direct-update APK is configured for device ABIs: '
+        '${supportedAbis.join(', ')}.',
+      );
+      return null;
+    }
+
+    final configuredApk = settings.splitApks[abi];
+    if (configuredApk == null) return null;
+
+    return _validateDirectApk(
+      url: configuredApk.url,
+      sha256: configuredApk.sha256,
+      urlKey: abi.remoteUrlKey,
+      sha256Key: abi.remoteSha256Key,
+      versionCode: abi.versionCodeForBaseBuild(settings.latestBuild),
+      abi: abi,
+    );
+  }
+
+  _ResolvedDirectApk? _validateDirectApk({
+    required String url,
+    required String sha256,
+    required String urlKey,
+    required String sha256Key,
+    required int versionCode,
+    AndroidApkAbi? abi,
+  }) {
+    final apkUri = _validHttpsUri(url);
+    if (apkUri == null) {
+      debugPrint(
+        'App update is available, but $urlKey is missing or is not HTTPS.',
+      );
+      return null;
+    }
+
+    final normalizedChecksum = sha256.toLowerCase();
+    if (normalizedChecksum.isNotEmpty &&
+        !RegExp(r'^[a-f0-9]{64}$').hasMatch(normalizedChecksum)) {
+      debugPrint(
+        'App update is available, but $sha256Key is not a valid SHA-256 value.',
+      );
+      return null;
+    }
+
+    return _ResolvedDirectApk(
+      uri: apkUri,
+      sha256: normalizedChecksum.isEmpty ? null : normalizedChecksum,
+      versionCode: versionCode,
+      abi: abi,
+    );
+  }
+
+  static Future<List<String>> _readSupportedAndroidAbis() async {
+    final androidInfo = await DeviceInfoPlugin().androidInfo;
+    return androidInfo.supportedAbis;
   }
 
   Future<AvailableAppUpdate?> _checkGooglePlay({
@@ -139,6 +239,10 @@ class AppUpdateService {
     required int installedBuild,
     required _RemoteUpdateSettings settings,
   }) async {
+    final configuredPlayBuild = settings.playLatestBuild > 0
+        ? settings.playLatestBuild
+        : (!settings.splitPerAbi ? settings.latestBuild : 0);
+
     try {
       final info = await play.InAppUpdate.checkForUpdate();
       final isAvailable =
@@ -153,8 +257,8 @@ class AppUpdateService {
         installedBuild: installedBuild,
         availableBuild:
             info.availableVersionCode ??
-            (settings.latestBuild > installedBuild
-                ? settings.latestBuild
+            (configuredPlayBuild > installedBuild
+                ? configuredPlayBuild
                 : installedBuild + 1),
         settings: settings,
       );
@@ -163,11 +267,11 @@ class AppUpdateService {
 
       // This fallback makes a locally installed Play-flavor build testable and
       // still directs an outdated user to the store if Play Core cannot respond.
-      if (settings.latestBuild > installedBuild) {
+      if (configuredPlayBuild > installedBuild) {
         return _buildPlayUpdate(
           packageInfo: packageInfo,
           installedBuild: installedBuild,
-          availableBuild: settings.latestBuild,
+          availableBuild: configuredPlayBuild,
           settings: settings,
         );
       }
@@ -207,9 +311,10 @@ class AppUpdateService {
     );
 
     final ota = OtaUpdate();
+    final apkLabel = update.apkAbi?.androidName ?? 'universal';
     final stream = ota.execute(
       apkUri.toString(),
-      destinationFilename: 'messhub-${update.availableBuild}.apk',
+      destinationFilename: 'messhub-$apkLabel-${update.availableBuild}.apk',
       sha256checksum: update.apkSha256,
     );
 
@@ -360,20 +465,47 @@ class _RemoteUpdateSettings {
   const _RemoteUpdateSettings({
     required this.enabled,
     required this.latestBuild,
+    required this.playLatestBuild,
     required this.latestVersion,
     required this.title,
     required this.message,
     required this.apkUrl,
     required this.apkSha256,
+    required this.splitPerAbi,
+    required this.splitApks,
     required this.playStoreUrl,
   });
 
   final bool enabled;
   final int latestBuild;
+  final int playLatestBuild;
   final String latestVersion;
   final String title;
   final String message;
   final String apkUrl;
   final String apkSha256;
+  final bool splitPerAbi;
+  final Map<AndroidApkAbi, _RemoteApkSettings> splitApks;
   final String playStoreUrl;
+}
+
+class _RemoteApkSettings {
+  const _RemoteApkSettings({required this.url, required this.sha256});
+
+  final String url;
+  final String sha256;
+}
+
+class _ResolvedDirectApk {
+  const _ResolvedDirectApk({
+    required this.uri,
+    required this.sha256,
+    required this.versionCode,
+    required this.abi,
+  });
+
+  final Uri uri;
+  final String? sha256;
+  final int versionCode;
+  final AndroidApkAbi? abi;
 }
