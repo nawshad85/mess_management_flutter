@@ -31,7 +31,7 @@ app:
 | `android_update_message` | String | `A faster version of MessHub is ready.` | Prompt body |
 | `android_apk_url` | String | `https://example.com/messhub.apk` | Public HTTPS URL for the direct APK |
 | `android_apk_sha256` | String | 64 lowercase hex characters | Optional but recommended integrity check |
-| `android_play_store_url` | String | `https://play.google.com/store/apps/details?id=com.example.mess_manager` | Store-page fallback after publication |
+| `android_play_store_url` | String | `https://play.google.com/store/apps/details?id=com.nawshad.messhub` | Store-page fallback after publication |
 
 Defaults are safe: updates are enabled, but `android_latest_build` is `0`, so
 no direct-update prompt appears until a release is configured. If fetching

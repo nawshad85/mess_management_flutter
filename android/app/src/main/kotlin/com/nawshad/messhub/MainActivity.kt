@@ -1,4 +1,4 @@
-package com.example.mess_manager
+package com.nawshad.messhub
 
 import io.flutter.embedding.android.FlutterActivity
 
