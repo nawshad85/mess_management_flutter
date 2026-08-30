@@ -40,11 +40,11 @@ continues normally.
 
 ## Releasing a direct APK now
 
-1. Choose the final Android application ID and a permanent release signing key
-   before distributing to real users. Every future APK must use the same
-   application ID and signing certificate or Android will reject it as an
-   update. The project currently falls back to the debug signing key and must
-   be given a production signing configuration before a real release.
+1. Choose the final Android application ID and keep the permanent release
+   signing key safe before distributing to real users. Every future APK must
+   use the same application ID and signing certificate or Android will reject
+   it as an update. Release builds load the ignored `android/key.properties`
+   file and fail instead of falling back to debug signing when it is missing.
 2. Increase both parts of `version` in `pubspec.yaml`. For example, change
    `1.0.0+1` to `1.0.1+2`. The number after `+` is the Android build/version
    code used for comparison.
