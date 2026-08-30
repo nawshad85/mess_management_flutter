@@ -7,8 +7,8 @@ with the splash screen.
 There are two Android distribution flavors:
 
 - `direct` is the default while the app is distributed from Supabase as one
-  universal APK. It downloads the configured signed APK and opens Android's
-  installer.
+  ARM-compatible APK containing both 32-bit and 64-bit ARM code. It downloads
+  the configured signed APK and opens Android's installer.
 - `play` uses Google Play Core in-app updates. Its merged manifest removes the
   APK installation permissions that Google Play does not allow for
   self-update.
@@ -31,7 +31,7 @@ app:
 | `android_latest_version` | String | `1.0.2` | Version name shown in the prompt |
 | `android_update_title` | String | `Update available` | Prompt title |
 | `android_update_message` | String | `A faster version of MessHub is ready.` | Prompt body |
-| `android_apk_url` | String | `https://example.supabase.co/storage/v1/object/public/releases/messhub.apk` | Stable public HTTPS URL for the universal APK |
+| `android_apk_url` | String | `https://example.supabase.co/storage/v1/object/public/releases/messhub.apk` | Stable public HTTPS URL for the single ARM APK |
 | `android_apk_sha256` | String | 64 hexadecimal characters | Optional but recommended integrity check |
 | `android_play_store_url` | String | `https://play.google.com/store/apps/details?id=com.nawshad.messhub` | Store-page fallback after publication |
 
@@ -40,7 +40,7 @@ no direct-update prompt appears until a release is configured. If fetching
 Remote Config fails, the last activated values are used and app startup
 continues normally.
 
-## Releasing the universal APK to Supabase
+## Releasing one APK for both ARM architectures to Supabase
 
 1. Keep the permanent release signing key safe. Every future APK must use the
    same application ID and signing certificate or Android will reject it as an
@@ -49,11 +49,22 @@ continues normally.
 2. Increase `version` in `pubspec.yaml` for each release. The current release
    is `1.0.2+3`; a following release could be `1.0.3+4`. The number after `+`
    is entered in `android_latest_build`.
-3. Build one signed universal APK:
+3. Build one signed APK containing both supported phone architectures:
 
    ```powershell
-   flutter build apk --flavor direct --release
+   flutter build apk --flavor direct --release --target-platform="android-arm,android-arm64"
    ```
+
+   This produces one APK containing:
+
+   - `android-arm` / `armeabi-v7a` for 32-bit ARM phones.
+   - `android-arm64` / `arm64-v8a` for 64-bit ARM phones.
+
+   It excludes x86-64, which is primarily used by emulators. For the current
+   app, that removes about 18 MiB and keeps the upload below Supabase's 50 MB
+   Free-plan limit. Do not add `--split-per-abi`; the required output is still
+   one APK. An x86-64 emulator cannot install this release APK, but normal
+   `flutter run` development builds can still target the emulator.
 
 4. Upload
    `build/app/outputs/flutter-apk/app-direct-release.apk` to a stable public
@@ -98,8 +109,8 @@ internal testing track or Internal App Sharing.
 
 ## Quick test before publishing
 
-1. Install an older universal direct APK, such as build `2`.
-2. Host a same-ID, same-signature universal APK with build `3`.
+1. Install an older single ARM direct APK, such as build `2`.
+2. Host a same-ID, same-signature single ARM APK with build `3`.
 3. Publish Remote Config with `android_latest_build = 3` and the hosted APK
    details.
 4. Fully close and reopen the old app.
