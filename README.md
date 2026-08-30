@@ -105,9 +105,9 @@ lib/
 
 ### App updates
 
-Android update prompts support automatic ABI-specific APK selection for direct
-distribution and a single future Google Play app bundle. Configure Firebase
-Remote Config and release flavors using
+Android update prompts support one universal APK for direct distribution and a
+future Google Play app bundle. Configure Firebase Remote Config and release
+flavors using
 [`docs/app_updates.md`](docs/app_updates.md).
 
 ## ⏰ Scheduled Cleanup (Cloud Functions)

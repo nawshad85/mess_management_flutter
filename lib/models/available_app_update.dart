@@ -1,5 +1,3 @@
-import 'package:mess_manager/models/android_apk_target.dart';
-
 enum UpdateDistribution { direct, play }
 
 class AvailableAppUpdate {
@@ -14,7 +12,6 @@ class AvailableAppUpdate {
     required this.storeUri,
     this.apkUri,
     this.apkSha256,
-    this.apkAbi,
   });
 
   final UpdateDistribution distribution;
@@ -27,7 +24,6 @@ class AvailableAppUpdate {
   final Uri storeUri;
   final Uri? apkUri;
   final String? apkSha256;
-  final AndroidApkAbi? apkAbi;
 
   bool get usesGooglePlay => distribution == UpdateDistribution.play;
 }

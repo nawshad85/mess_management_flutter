@@ -86,7 +86,7 @@ class AppUpdateController extends GetxController {
                 Text(
                   update.usesGooglePlay
                       ? 'Google Play will securely download and install the update.'
-                      : 'The correct APK for this phone will download now. Android will then ask you to confirm installation.',
+                      : 'The APK will download now. Android will then ask you to confirm installation.',
                   style: const TextStyle(
                     color: AppTheme.textSecondary,
                     fontSize: 13,
