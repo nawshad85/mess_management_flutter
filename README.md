@@ -103,6 +103,12 @@ lib/
    flutter run
    ```
 
+### App updates
+
+Android update prompts support both direct APK distribution and future Google
+Play in-app updates. Configure Firebase Remote Config and release flavors using
+[`docs/app_updates.md`](docs/app_updates.md).
+
 ## ⏰ Scheduled Cleanup (Cloud Functions)
 
 This project now includes a scheduled Firebase Cloud Function that automatically deletes old monthly data and keeps only the latest 3 months:

@@ -5,6 +5,7 @@ import 'package:mess_manager/controllers/room_controller.dart';
 import 'package:mess_manager/controllers/mess_controller.dart';
 import 'package:mess_manager/controllers/bazar_controller.dart';
 import 'package:mess_manager/models/bazar_model.dart';
+import 'package:mess_manager/models/user_model.dart';
 import 'package:mess_manager/app/theme/app_theme.dart';
 import 'package:intl/intl.dart';
 
@@ -19,14 +20,27 @@ class _BazarEntryViewState extends State<BazarEntryView> {
   final bazarController = Get.find<BazarController>();
   final roomController = Get.find<RoomController>();
   final authController = Get.find<AuthController>();
+  final messController = Get.find<MessController>();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Bazar')),
       body: Obx(() {
-        final entries = bazarController.bazarEntries;
+        final entries = bazarController.bazarEntries.toList(growable: false);
+        final members = messController.messMembers.toList(growable: false);
         final user = authController.currentUser.value;
+        final now = DateTime.now();
+        final currentMonthEntries = entries
+            .where(
+              (entry) =>
+                  entry.date.year == now.year && entry.date.month == now.month,
+            )
+            .toList(growable: false);
+        final currentMonthTotal = currentMonthEntries.fold<double>(
+          0,
+          (total, entry) => total + entry.totalCost,
+        );
         final activeRoom = roomController.rooms
             .where((r) => r.isActiveBazar)
             .firstOrNull;
@@ -37,29 +51,16 @@ class _BazarEntryViewState extends State<BazarEntryView> {
                 (activeRoom != null &&
                     roomController.canEditBazar(user.uid, activeRoom)));
 
-        if (entries.isEmpty && !canAdd) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.shopping_basket_outlined,
-                  size: 64,
-                  color: AppTheme.textSecondary.withValues(alpha: 0.5),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'No bazar entries yet',
-                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 16),
-                ),
-              ],
-            ),
-          );
-        }
-
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            _buildCurrentMonthTotalCard(
+              total: currentMonthTotal,
+              entryCount: currentMonthEntries.length,
+              month: now,
+            ),
+            const SizedBox(height: 16),
+
             // Add entry button (shown only to authorized users)
             if (canAdd)
               Padding(
@@ -77,25 +78,126 @@ class _BazarEntryViewState extends State<BazarEntryView> {
                   ),
                 ),
               ),
-            ...entries.map((entry) {
-              final canEdit =
-                  user != null &&
-                  roomController.canEditBazarEntry(user.uid, entry.date);
-              return _BazarEntryCard(
-                entry: entry,
-                members: Get.find<MessController>().messMembers,
-                canEdit: canEdit,
-                onEdit: canEdit
-                    ? () => _showEditEntryDialog(context, entry)
-                    : null,
-                onDelete: canEdit
-                    ? () => _confirmDeleteEntry(context, entry)
-                    : null,
-              );
-            }),
+            if (entries.isEmpty)
+              _buildEmptyState()
+            else
+              ...entries.map((entry) {
+                final canEdit =
+                    user != null &&
+                    roomController.canEditBazarEntry(user.uid, entry.date);
+                return _BazarEntryCard(
+                  entry: entry,
+                  members: members,
+                  canEdit: canEdit,
+                  onEdit: canEdit
+                      ? () => _showEditEntryDialog(context, entry)
+                      : null,
+                  onDelete: canEdit
+                      ? () => _confirmDeleteEntry(context, entry)
+                      : null,
+                );
+              }),
           ],
         );
       }),
+    );
+  }
+
+  Widget _buildCurrentMonthTotalCard({
+    required double total,
+    required int entryCount,
+    required DateTime month,
+  }) {
+    final entryLabel = entryCount == 1 ? 'entry' : 'entries';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppTheme.primaryColor.withValues(alpha: 0.24),
+            AppTheme.secondaryColor.withValues(alpha: 0.10),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppTheme.primaryColor.withValues(alpha: 0.24),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.payments_rounded,
+              color: AppTheme.primaryColor,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'This Month\'s Bazar Cost',
+                  style: TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${DateFormat('MMMM yyyy').format(month)} • $entryCount $entryLabel',
+                  style: const TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              '৳${total.toStringAsFixed(0)}',
+              style: const TextStyle(
+                color: AppTheme.secondaryColor,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 36),
+      child: Column(
+        children: [
+          Icon(
+            Icons.shopping_basket_outlined,
+            size: 56,
+            color: AppTheme.textSecondary.withValues(alpha: 0.5),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'No bazar entries yet',
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 16),
+          ),
+        ],
+      ),
     );
   }
 
@@ -488,7 +590,7 @@ class _BazarEntryViewState extends State<BazarEntryView> {
 
 class _BazarEntryCard extends StatelessWidget {
   final BazarModel entry;
-  final List members;
+  final List<UserModel> members;
   final bool canEdit;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;

@@ -645,6 +645,24 @@ class _MonthlySummaryViewState extends State<MonthlySummaryView> {
             );
           }),
 
+          AnimatedBuilder(
+            animation: Listenable.merge([
+              for (final member in members) _fundControllers[member.uid]!,
+            ]),
+            builder: (context, child) => _buildContributionTotal(
+              members.fold<double>(
+                0,
+                (total, member) =>
+                    total +
+                    (double.tryParse(
+                          _fundControllers[member.uid]?.text ?? '',
+                        ) ??
+                        0),
+              ),
+              color: AppTheme.warningColor,
+            ),
+          ),
+
           const SizedBox(height: 12),
 
           // Fixed meal box
@@ -888,7 +906,18 @@ class _MonthlySummaryViewState extends State<MonthlySummaryView> {
     return Obx(() {
       final members = messController.messMembers;
       final deposits = summaryController.currentDeposits;
+      final summary = summaryController.currentSummary.value;
       final currentUid = authController.currentUser.value?.uid;
+      final contributions = deposits.isNotEmpty
+          ? Map<String, double>.from(deposits)
+          : <String, double>{
+              for (final member in summary?.members ?? <MemberSummary>[])
+                member.uid: member.moneyPutIn,
+            };
+      final totalContributions = contributions.values.fold<double>(
+        0,
+        (total, amount) => total + amount,
+      );
 
       return Container(
         margin: const EdgeInsets.only(bottom: 4),
@@ -945,7 +974,7 @@ class _MonthlySummaryViewState extends State<MonthlySummaryView> {
             ),
             const SizedBox(height: 14),
 
-            if (deposits.isEmpty)
+            if (contributions.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
                 child: Text(
@@ -955,7 +984,7 @@ class _MonthlySummaryViewState extends State<MonthlySummaryView> {
               )
             else
               ...members.map((member) {
-                final amount = deposits[member.uid] ?? 0;
+                final amount = contributions[member.uid] ?? 0;
                 final isMe = member.uid == currentUid;
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
@@ -1046,10 +1075,53 @@ class _MonthlySummaryViewState extends State<MonthlySummaryView> {
                   ),
                 );
               }),
+            if (contributions.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              _buildContributionTotal(
+                totalContributions,
+                color: AppTheme.secondaryColor,
+              ),
+            ],
           ],
         ),
       );
     });
+  }
+
+  Widget _buildContributionTotal(double total, {required Color color}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.savings_rounded, size: 20, color: color),
+          const SizedBox(width: 9),
+          const Expanded(
+            child: Text(
+              'Total Member Contributions',
+              style: TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Text(
+            '৳${total.toStringAsFixed(1)}',
+            style: TextStyle(
+              color: color,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── Overview card ───────────────────────────────────

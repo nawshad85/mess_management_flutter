@@ -11,6 +11,7 @@ class AuthController extends GetxController {
 
   final Rx<UserModel?> currentUser = Rx<UserModel?>(null);
   final RxBool isLoading = false.obs;
+  final RxBool hasResolvedInitialAuthState = false.obs;
   final RxString errorMessage = ''.obs;
 
   @override
@@ -18,40 +19,41 @@ class AuthController extends GetxController {
     super.onInit();
     // Listen to Firebase auth state changes
     FirebaseAuth.instance.authStateChanges().listen((firebaseUser) async {
-      if (firebaseUser != null) {
-        // Check email verification first
-        if (!firebaseUser.emailVerified) {
-          // Don't load profile or navigate to home — wait for verification
-          if (Get.currentRoute != '/email-verification' &&
-              Get.currentRoute != '/register') {
-            Get.offAllNamed('/email-verification');
+      try {
+        if (firebaseUser != null) {
+          // Check email verification first
+          if (!firebaseUser.emailVerified) {
+            // Don't load profile or navigate to home — wait for verification
+            if (Get.currentRoute != '/email-verification' &&
+                Get.currentRoute != '/register') {
+              Get.offAllNamed('/email-verification');
+            }
+            return;
           }
-          return;
-        }
 
-        // User is signed in & verified — load their Firestore profile
-        final user = await _authService.getCurrentUserModel();
-        currentUser.value = user;
-        // Tag device in OneSignal for push notifications
-        if (user != null) {
-          _oneSignalService.setUserTags(
-            uid: user.uid,
-            messId: user.messId,
-          );
+          // User is signed in & verified — load their Firestore profile
+          final user = await _authService.getCurrentUserModel();
+          currentUser.value = user;
+          // Tag device in OneSignal for push notifications
+          if (user != null) {
+            _oneSignalService.setUserTags(uid: user.uid, messId: user.messId);
+          }
+          // Navigate to home if on splash, login, or register
+          if (Get.currentRoute == '/' ||
+              Get.currentRoute == '/login' ||
+              Get.currentRoute == '/register' ||
+              Get.currentRoute == '/email-verification') {
+            Get.offAllNamed('/home');
+          }
+        } else {
+          // User is signed out
+          currentUser.value = null;
+          if (Get.currentRoute != '/login' && Get.currentRoute != '/register') {
+            Get.offAllNamed('/login');
+          }
         }
-        // Navigate to home if on splash, login, or register
-        if (Get.currentRoute == '/' ||
-            Get.currentRoute == '/login' ||
-            Get.currentRoute == '/register' ||
-            Get.currentRoute == '/email-verification') {
-          Get.offAllNamed('/home');
-        }
-      } else {
-        // User is signed out
-        currentUser.value = null;
-        if (Get.currentRoute != '/login' && Get.currentRoute != '/register') {
-          Get.offAllNamed('/login');
-        }
+      } finally {
+        hasResolvedInitialAuthState.value = true;
       }
     });
   }
@@ -70,11 +72,7 @@ class AuthController extends GetxController {
       isLoading.value = true;
       errorMessage.value = '';
 
-      await _authService.register(
-        email: email,
-        password: password,
-        name: name,
-      );
+      await _authService.register(email: email, password: password, name: name);
 
       // Send verification email
       await _authService.sendVerificationEmail();

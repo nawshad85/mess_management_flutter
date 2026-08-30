@@ -6,6 +6,7 @@ import 'package:mess_manager/controllers/room_controller.dart';
 import 'package:mess_manager/controllers/meal_controller.dart';
 import 'package:mess_manager/models/meal_entry_model.dart';
 import 'package:mess_manager/models/room_model.dart';
+import 'package:mess_manager/models/user_model.dart';
 import 'package:mess_manager/app/theme/app_theme.dart';
 import 'package:intl/intl.dart';
 
@@ -95,15 +96,16 @@ class _MealEntryViewState extends State<MealEntryView> {
     return Scaffold(
       appBar: AppBar(title: const Text('Meals')),
       body: Obx(() {
-        // trigger rebuild when entries change
+        // Keep every data source used by this view inside the reactive scope.
         mealController.mealEntries.length;
         roomController.rooms.length;
+        final members = messController.messMembers.toList(growable: false);
 
         return Column(
           children: [
             _buildCalendar(),
             const Divider(height: 1, color: AppTheme.cardColor),
-            Expanded(child: _buildDetails()),
+            Expanded(child: _buildDetails(members)),
           ],
         );
       }),
@@ -281,7 +283,7 @@ class _MealEntryViewState extends State<MealEntryView> {
 
   // ── details panel (bottom half) ──────────────────────
 
-  Widget _buildDetails() {
+  Widget _buildDetails(List<UserModel> members) {
     if (_selectedDate == null) {
       return const Center(
         child: Text(
@@ -293,7 +295,6 @@ class _MealEntryViewState extends State<MealEntryView> {
 
     final entry = _findEntryForDate(_selectedDate!);
     final canEdit = _canEditForDate(_selectedDate!);
-    final members = messController.messMembers;
     final room = _findRoomForDate(_selectedDate!);
 
     return Container(
@@ -508,7 +509,7 @@ class _MealEntryViewState extends State<MealEntryView> {
 // ── editor bottom sheet widget ───────────────────────
 
 class _MealEditorSheet extends StatefulWidget {
-  final List members;
+  final RxList<UserModel> members;
   final Map<String, int> meals;
   final DateTime date;
   final MealEntryModel? existingEntry;
@@ -596,119 +597,140 @@ class _MealEditorSheetState extends State<_MealEditorSheet> {
 
           // Member counters
           Flexible(
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: widget.members.length,
-              itemBuilder: (context, index) {
-                final member = widget.members[index];
-                final count = meals[member.uid] ?? 0;
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardColor,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 16,
-                        backgroundColor: AppTheme.primaryColor.withValues(
-                          alpha: 0.2,
-                        ),
-                        child: Text(
-                          member.name.isNotEmpty
-                              ? member.name[0].toUpperCase()
-                              : '?',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.primaryColor,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          member.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                      ),
-                      // Counter
-                      Container(
-                        decoration: BoxDecoration(
-                          color: AppTheme.backgroundColor,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              constraints: const BoxConstraints(
-                                minWidth: 36,
-                                minHeight: 36,
-                              ),
-                              iconSize: 20,
-                              icon: const Icon(
-                                Icons.remove_circle_outline,
-                                color: AppTheme.errorColor,
-                              ),
-                              onPressed: count > 0
-                                  ? () => setState(
-                                      () => meals[member.uid] = count - 1,
-                                    )
-                                  : null,
-                            ),
-                            SizedBox(
-                              width: 28,
-                              child: Text(
-                                '$count',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.textPrimary,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              constraints: const BoxConstraints(
-                                minWidth: 36,
-                                minHeight: 36,
-                              ),
-                              iconSize: 20,
-                              icon: const Icon(
-                                Icons.add_circle_outline,
-                                color: AppTheme.successColor,
-                              ),
-                              onPressed: () =>
-                                  setState(() => meals[member.uid] = count + 1),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+            child: Obx(() {
+              final members = widget.members.toList(growable: false);
+
+              if (members.isEmpty) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: CircularProgressIndicator(),
                   ),
                 );
-              },
-            ),
+              }
+
+              for (final member in members) {
+                meals.putIfAbsent(member.uid, () => 0);
+              }
+
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: members.length,
+                itemBuilder: (context, index) {
+                  final member = members[index];
+                  final count = meals[member.uid] ?? 0;
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardColor,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 16,
+                          backgroundColor: AppTheme.primaryColor.withValues(
+                            alpha: 0.2,
+                          ),
+                          child: Text(
+                            member.name.isNotEmpty
+                                ? member.name[0].toUpperCase()
+                                : '?',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            member.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                        ),
+                        // Counter
+                        Container(
+                          decoration: BoxDecoration(
+                            color: AppTheme.backgroundColor,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                constraints: const BoxConstraints(
+                                  minWidth: 36,
+                                  minHeight: 36,
+                                ),
+                                iconSize: 20,
+                                icon: const Icon(
+                                  Icons.remove_circle_outline,
+                                  color: AppTheme.errorColor,
+                                ),
+                                onPressed: count > 0
+                                    ? () => setState(
+                                        () => meals[member.uid] = count - 1,
+                                      )
+                                    : null,
+                              ),
+                              SizedBox(
+                                width: 28,
+                                child: Text(
+                                  '$count',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                constraints: const BoxConstraints(
+                                  minWidth: 36,
+                                  minHeight: 36,
+                                ),
+                                iconSize: 20,
+                                icon: const Icon(
+                                  Icons.add_circle_outline,
+                                  color: AppTheme.successColor,
+                                ),
+                                onPressed: () => setState(
+                                  () => meals[member.uid] = count + 1,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            }),
           ),
 
           const SizedBox(height: 16),
 
           // Save button
-          Obx(
-            () => SizedBox(
+          Obx(() {
+            final isSaving = widget.mealController.isLoading.value;
+            final hasMembers = widget.members.isNotEmpty;
+
+            return SizedBox(
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
-                onPressed: widget.mealController.isLoading.value
+                onPressed: isSaving || !hasMembers
                     ? null
                     : () async {
                         bool success;
@@ -734,9 +756,9 @@ class _MealEditorSheetState extends State<_MealEditorSheet> {
                         if (success) {
                           widget.onSaved();
                         }
-                        if (mounted) Navigator.of(context).pop();
+                        if (context.mounted) Navigator.of(context).pop();
                       },
-                child: widget.mealController.isLoading.value
+                child: isSaving
                     ? const SizedBox(
                         width: 22,
                         height: 22,
@@ -747,8 +769,8 @@ class _MealEditorSheetState extends State<_MealEditorSheet> {
                       )
                     : Text(widget.existingEntry != null ? 'Update' : 'Save'),
               ),
-            ),
-          ),
+            );
+          }),
         ],
       ),
     );
