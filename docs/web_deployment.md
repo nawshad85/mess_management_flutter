@@ -9,10 +9,22 @@ and Build Output API artifacts in `.vercel/output`. Only `main` is enabled for
 Git deployments in vercel.json.
 
 Vercel project: `mess-manager` in `abrarsami2021-7062s-projects`.
-Production website: https://mess-manager-khaki.vercel.app.
+Production website: https://messhub.rynzai.com.
 The existing Vercel project is connected through the Vercel GitHub App to
 `nawshad85/mess_management_flutter`, with production branch `main`. Keep that
 App's repository access enabled for automatic deployments to continue.
+
+## Custom domain
+
+`messhub.rynzai.com` is assigned to this project's production deployments and
+authorized in Firebase Authentication. DNS is hosted by Cloudflare; Namecheap
+remains the registrar. The Cloudflare record is:
+
+| Type | Name | Target | Proxy | TTL |
+| --- | --- | --- | --- | --- |
+| CNAME | messhub | 27bf9f1182cb9a3b.vercel-dns-017.com | DNS only | Auto |
+
+Vercel manages the hostname's HTTPS certificate and renewal automatically.
 
 ## Build and credentials
 
@@ -55,7 +67,7 @@ To check production HTML, JavaScript, fonts, CanvasKit Wasm, icons, direct-route
 fallback, and missing-asset handling locally, run:
 
 ```sh
-node scripts/verify-web-deployment.mjs https://mess-manager-khaki.vercel.app
+node scripts/verify-web-deployment.mjs https://messhub.rynzai.com
 ```
 
 This check does not sign in, send emails, or modify production data.
