@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:mess_manager/app/routes/app_routes.dart';
 import 'package:mess_manager/app/theme/app_theme.dart';
+import 'package:mess_manager/controllers/auth_controller.dart';
 
 class EmailVerificationView extends StatefulWidget {
   const EmailVerificationView({super.key});
@@ -17,6 +18,7 @@ class _EmailVerificationViewState extends State<EmailVerificationView> {
   final RxBool _canResend = true.obs;
   final RxInt _resendCountdown = 0.obs;
   Timer? _resendTimer;
+  bool _checkingVerification = false;
 
   @override
   void initState() {
@@ -35,23 +37,23 @@ class _EmailVerificationViewState extends State<EmailVerificationView> {
   }
 
   Future<void> _checkEmailVerified() async {
+    if (_checkingVerification || !mounted) return;
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-
-    await user.reload();
-    final refreshedUser = FirebaseAuth.instance.currentUser;
-
-    if (refreshedUser != null && refreshedUser.emailVerified) {
-      _checkTimer?.cancel();
-      // Sign out so user logs in fresh with a verified account
-      await FirebaseAuth.instance.signOut();
-      Get.offAllNamed(AppRoutes.login);
-      Get.snackbar(
-        'Email Verified ✅',
-        'Your email has been verified. Please log in.',
-        snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 4),
-      );
+    _checkingVerification = true;
+    try {
+      await user.reload();
+      final refreshedUser = FirebaseAuth.instance.currentUser;
+      if (!mounted || refreshedUser?.uid != user.uid) return;
+      if (refreshedUser!.emailVerified) {
+        _checkTimer?.cancel();
+        // Verification updates the existing session; it must not sign it out.
+        await Get.find<AuthController>().restoreSession();
+      }
+    } on FirebaseAuthException catch (_) {
+      // A transient reload failure should not remove the user's session.
+    } finally {
+      _checkingVerification = false;
     }
   }
 
@@ -142,10 +144,7 @@ class _EmailVerificationViewState extends State<EmailVerificationView> {
 
                 Text(
                   'We\'ve sent a verification link to',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textSecondary,
-                  ),
+                  style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
                 ),
                 const SizedBox(height: 4),
                 Text(

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:mess_manager/app/theme/app_theme.dart';
+import 'package:get/get.dart';
+import 'package:mess_manager/controllers/auth_controller.dart';
 
 class SplashView extends StatelessWidget {
   const SplashView({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final authController = Get.find<AuthController>();
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: Center(
@@ -37,14 +40,40 @@ class SplashView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 32),
-            const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppTheme.primaryColor,
-              ),
-            ),
+            Obx(() {
+              if (authController.sessionRestoreError.isEmpty) {
+                return const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppTheme.primaryColor,
+                  ),
+                );
+              }
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: Column(
+                  children: [
+                    Text(
+                      authController.sessionRestoreError.value,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: authController.isRestoringSession.value
+                          ? null
+                          : () => authController.restoreSession(),
+                      child: const Text('Retry'),
+                    ),
+                    TextButton(
+                      onPressed: () => authController.logout(),
+                      child: const Text('Sign out'),
+                    ),
+                  ],
+                ),
+              );
+            }),
           ],
         ),
       ),

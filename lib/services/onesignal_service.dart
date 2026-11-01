@@ -24,14 +24,14 @@ class OneSignalService {
   }
 
   /// Tag the current device with user info so we can target notifications.
-  void setUserTags({required String uid, String? messId}) {
+  Future<void> setUserTags({required String uid, String? messId}) async {
     if (kIsWeb) return;
-    OneSignal.login(uid);
+    await OneSignal.login(uid);
     final tags = <String, String>{'uid': uid};
     if (messId != null && messId.isNotEmpty) {
       tags['messId'] = messId;
     }
-    OneSignal.User.addTags(tags);
+    await OneSignal.User.addTags(tags);
   }
 
   /// Update the messId tag (e.g. after joining/creating a mess).
@@ -41,10 +41,10 @@ class OneSignalService {
   }
 
   /// Remove tags and logout from OneSignal (on app logout).
-  void removeUserTags() {
+  Future<void> removeUserTags() async {
     if (kIsWeb) return;
-    OneSignal.User.removeTags(['uid', 'messId']);
-    OneSignal.logout();
+    await OneSignal.User.removeTags(['uid', 'messId']);
+    await OneSignal.logout();
   }
 
   /// Send a push notification to all users in the same mess, excluding sender.

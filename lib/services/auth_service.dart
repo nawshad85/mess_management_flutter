@@ -7,8 +7,12 @@ import 'package:mess_manager/models/user_model.dart';
 import 'package:mess_manager/utils/constants.dart';
 
 class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  AuthService({FirebaseAuth? auth, FirebaseFirestore? firestore})
+    : _auth = auth ?? FirebaseAuth.instance,
+      _firestore = firestore ?? FirebaseFirestore.instance;
+
+  final FirebaseAuth _auth;
+  final FirebaseFirestore _firestore;
 
   User? get currentUser => _auth.currentUser;
   Stream<User?> get authStateChanges => _auth.authStateChanges();

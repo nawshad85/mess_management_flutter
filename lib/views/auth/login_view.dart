@@ -145,14 +145,10 @@ class LoginView extends StatelessWidget {
                                 ? null
                                 : () async {
                                     if (formKey.currentState!.validate()) {
-                                      final success = await authController
-                                          .login(
-                                            email: emailController.text,
-                                            password: passwordController.text,
-                                          );
-                                      if (success) {
-                                        Get.offAllNamed(AppRoutes.home);
-                                      }
+                                      await authController.login(
+                                        email: emailController.text,
+                                        password: passwordController.text,
+                                      );
                                     }
                                   },
                             child: authController.isLoading.value

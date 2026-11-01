@@ -1,61 +1,147 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:mess_manager/models/user_model.dart';
 import 'package:mess_manager/services/auth_service.dart';
 import 'package:mess_manager/services/onesignal_service.dart';
+import 'package:mess_manager/app/routes/app_routes.dart';
 
 class AuthController extends GetxController {
-  final AuthService _authService = AuthService();
-  final OneSignalService _oneSignalService = OneSignalService();
+  AuthController({AuthService? authService, OneSignalService? oneSignalService})
+    : _authService = authService ?? AuthService(),
+      _oneSignalService = oneSignalService ?? OneSignalService();
+
+  final AuthService _authService;
+  final OneSignalService _oneSignalService;
+  StreamSubscription<User?>? _authSubscription;
+  int _sessionGeneration = 0;
+  bool _navigationReady = false;
+  String? _pendingRoute;
 
   final Rx<UserModel?> currentUser = Rx<UserModel?>(null);
   final RxBool isLoading = false.obs;
   final RxBool hasResolvedInitialAuthState = false.obs;
   final RxString errorMessage = ''.obs;
+  final RxString sessionRestoreError = ''.obs;
+  final RxBool isRestoringSession = true.obs;
 
   @override
   void onInit() {
     super.onInit();
-    // Listen to Firebase auth state changes
-    FirebaseAuth.instance.authStateChanges().listen((firebaseUser) async {
-      try {
-        if (firebaseUser != null) {
-          // Check email verification first
-          if (!firebaseUser.emailVerified) {
-            // Don't load profile or navigate to home — wait for verification
-            if (Get.currentRoute != '/email-verification' &&
-                Get.currentRoute != '/register') {
-              Get.offAllNamed('/email-verification');
-            }
-            return;
-          }
+    // The SDK restores its native session. Wait for its first event instead of
+    // treating the controller's initially empty profile as a signed-out user.
+    _authSubscription = _authService.authStateChanges.listen(
+      (_) => unawaited(restoreSession()),
+      onError: (Object error) {
+        sessionRestoreError.value =
+            'Unable to restore your session. Please retry.';
+        isRestoringSession.value = false;
+        hasResolvedInitialAuthState.value = true;
+        _routeTo(AppRoutes.splash);
+      },
+    );
+  }
 
-          // User is signed in & verified — load their Firestore profile
-          final user = await _authService.getCurrentUserModel();
-          currentUser.value = user;
-          // Tag device in OneSignal for push notifications
-          if (user != null) {
-            _oneSignalService.setUserTags(uid: user.uid, messId: user.messId);
-          }
-          // Navigate to home if on splash, login, or register
-          if (Get.currentRoute == '/' ||
-              Get.currentRoute == '/login' ||
-              Get.currentRoute == '/register' ||
-              Get.currentRoute == '/email-verification') {
-            Get.offAllNamed('/home');
-          }
-        } else {
-          // User is signed out
-          currentUser.value = null;
-          if (Get.currentRoute != '/login' && Get.currentRoute != '/register') {
-            Get.offAllNamed('/login');
-          }
+  @override
+  void onReady() {
+    super.onReady();
+    _navigationReady = true;
+    final route = _pendingRoute;
+    _pendingRoute = null;
+    if (route != null) _routeTo(route);
+  }
+
+  void _routeTo(String route) {
+    if (!_navigationReady) {
+      _pendingRoute = route;
+      return;
+    }
+    final current = Get.currentRoute;
+    if (route == AppRoutes.home &&
+        !const [
+          '',
+          AppRoutes.splash,
+          AppRoutes.login,
+          AppRoutes.register,
+          AppRoutes.emailVerification,
+        ].contains(current)) {
+      return;
+    }
+    if (current == AppRoutes.register &&
+        (route == AppRoutes.login || route == AppRoutes.emailVerification)) {
+      return;
+    }
+    if (current != route) Get.offAllNamed(route);
+  }
+
+  Future<void> restoreSession({UserModel? knownProfile}) async {
+    final generation = ++_sessionGeneration;
+    final firebaseUser = _authService.currentUser;
+    isRestoringSession.value = true;
+    sessionRestoreError.value = '';
+    try {
+      if (firebaseUser == null) {
+        currentUser.value = null;
+        _routeTo(AppRoutes.login);
+        return;
+      }
+      if (currentUser.value?.uid != firebaseUser.uid) currentUser.value = null;
+      if (!firebaseUser.emailVerified) {
+        // A saved User may still have the pre-verification flag. Refresh it
+        // without discarding the signed-in session, including when offline.
+        try {
+          await firebaseUser.reload();
+        } catch (_) {
+          // Retain the cached verification state if the network is unavailable.
         }
-      } finally {
+        if (!_isCurrentSession(generation, firebaseUser.uid)) return;
+        if (_authService.currentUser?.emailVerified != true) {
+          currentUser.value = null;
+          _routeTo(AppRoutes.emailVerification);
+          return;
+        }
+      }
+      final user = knownProfile ?? await _authService.getCurrentUserModel();
+      if (!_isCurrentSession(generation, firebaseUser.uid)) return;
+      if (user == null || user.uid != firebaseUser.uid) {
+        throw StateError('The signed-in account profile is unavailable');
+      }
+      currentUser.value = user;
+      _routeTo(AppRoutes.home);
+      // Notification setup must never prevent restoring an authenticated UI.
+      unawaited(_tagUser(user));
+    } catch (error) {
+      if (!_isCurrentSession(generation, firebaseUser?.uid)) return;
+      sessionRestoreError.value =
+          'You are still signed in, but your profile could not be loaded. '
+          'Check your connection and retry.';
+      _routeTo(AppRoutes.splash);
+      debugPrint('Session profile restoration failed (${error.runtimeType}).');
+    } finally {
+      if (generation == _sessionGeneration) {
+        isRestoringSession.value = false;
         hasResolvedInitialAuthState.value = true;
       }
-    });
+    }
+  }
+
+  bool _isCurrentSession(int generation, String? uid) =>
+      generation == _sessionGeneration && _authService.currentUser?.uid == uid;
+
+  Future<void> _tagUser(UserModel user) async {
+    try {
+      await _oneSignalService.setUserTags(uid: user.uid, messId: user.messId);
+    } catch (_) {
+      debugPrint('Notification tags could not be refreshed.');
+    }
+  }
+
+  @override
+  void onClose() {
+    ++_sessionGeneration;
+    unawaited(_authSubscription?.cancel() ?? Future<void>.value());
+    super.onClose();
   }
 
   Future<void> _loadCurrentUser() async {
@@ -92,7 +178,7 @@ class AuthController extends GetxController {
       errorMessage.value = '';
 
       final user = await _authService.login(email: email, password: password);
-      currentUser.value = user;
+      await restoreSession(knownProfile: user);
       return true;
     } catch (e) {
       errorMessage.value = _getErrorMessage(e);
@@ -103,10 +189,14 @@ class AuthController extends GetxController {
   }
 
   Future<void> logout() async {
-    _oneSignalService.removeUserTags();
     await _authService.logout();
     currentUser.value = null;
-    Get.offAllNamed('/login');
+    _routeTo(AppRoutes.login);
+    try {
+      await _oneSignalService.removeUserTags();
+    } catch (_) {
+      debugPrint('Notification tags could not be cleared.');
+    }
   }
 
   Future<void> sendPasswordResetEmail(String email) async {
