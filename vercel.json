@@ -1,7 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
+  "installCommand": "echo 'Flutter dependencies are installed by the build script'",
+  "buildCommand": "bash scripts/vercel-build.sh",
+  "outputDirectory": "build/web",
   "git": {
-    "deploymentEnabled": false
+    "deploymentEnabled": {
+      "main": true,
+      "**": false
+    }
   }
 }
