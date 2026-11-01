@@ -10,9 +10,9 @@ Git deployments in vercel.json.
 
 Vercel project: `mess-manager` in `abrarsami2021-7062s-projects`.
 Production website: https://mess-manager-khaki.vercel.app.
-The Vercel GitHub App must be installed for `nawshad85` with access to
-`mess_management_flutter`, and the existing Vercel project must be connected to
-that repository with production branch `main`.
+The existing Vercel project is connected through the Vercel GitHub App to
+`nawshad85/mess_management_flutter`, with production branch `main`. Keep that
+App's repository access enabled for automatic deployments to continue.
 
 ## Build and credentials
 
