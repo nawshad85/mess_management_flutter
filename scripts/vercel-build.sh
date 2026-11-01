@@ -35,6 +35,6 @@ fi
 
 flutter pub get --enforce-lockfile
 flutter analyze --no-fatal-infos
-flutter test test/available_app_update_test.dart
+flutter test test/available_app_update_test.dart test/user_profile_privacy_test.dart
 flutter build web --release
 node scripts/prepare-vercel-output.mjs

@@ -57,6 +57,22 @@ class UserModel {
     );
   }
 
+  // Deliberately exclude email and PIN material from shared documents.
+  Map<String, dynamic> toMemberProfileMap() => {
+    'uid': uid,
+    'name': name,
+    'uniqueId': uniqueId,
+    'messId': messId,
+    'role': role,
+    'roomId': roomId,
+  };
+
+  Map<String, dynamic> toInviteCodeMap() => {
+    'uid': uid,
+    'name': name,
+    'messId': messId,
+  };
+
   UserModel copyWith({
     String? uid,
     String? name,

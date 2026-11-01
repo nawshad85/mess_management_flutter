@@ -7,16 +7,18 @@ import 'package:mess_manager/models/meal_entry_model.dart';
 import 'package:mess_manager/models/monthly_summary_model.dart';
 import 'package:mess_manager/utils/constants.dart';
 import 'package:uuid/uuid.dart';
+import 'package:mess_manager/services/profile_service.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final Uuid _uuid = const Uuid();
+  final ProfileService _profiles = ProfileService();
 
   // ============== USER OPERATIONS ==============
 
   Future<UserModel?> getUser(String uid) async {
     final doc = await _firestore
-        .collection(AppConstants.usersCollection)
+        .collection(AppConstants.memberProfilesCollection)
         .doc(uid)
         .get();
     if (!doc.exists) return null;
@@ -24,19 +26,20 @@ class FirestoreService {
   }
 
   Future<UserModel?> getUserByUniqueId(String uniqueId) async {
-    final query = await _firestore
-        .collection(AppConstants.usersCollection)
-        .where('uniqueId', isEqualTo: uniqueId.trim().toUpperCase())
+    final code = uniqueId.trim().toUpperCase();
+    if (!RegExp(r'^[A-Z0-9]{8}$').hasMatch(code)) return null;
+    final doc = await _firestore
+        .collection(AppConstants.inviteCodesCollection)
+        .doc(code)
         .get();
-    if (query.docs.isEmpty) return null;
-    return UserModel.fromMap(query.docs.first.data());
+    if (!doc.exists) return null;
+    return UserModel.fromMap({...doc.data()!, 'uniqueId': doc.id});
   }
 
   Future<void> updateUser(UserModel user) async {
-    await _firestore
-        .collection(AppConstants.usersCollection)
-        .doc(user.uid)
-        .update(user.toMap());
+    final batch = _firestore.batch();
+    await _profiles.queueUpdate(batch, user.uid, user.toMap());
+    await batch.commit();
   }
 
   Stream<UserModel?> userStream(String uid) {
@@ -88,10 +91,13 @@ class FirestoreService {
     }
 
     // Update the manager's user document
-    await _firestore
-        .collection(AppConstants.usersCollection)
-        .doc(managerId)
-        .update({'messId': messId, 'role': AppConstants.roleManager});
+    final batch = _firestore.batch();
+    await _profiles.queueUpdate(batch, managerId, {
+      'messId': messId,
+      'role': AppConstants.roleManager,
+      'roomId': null,
+    });
+    await batch.commit();
 
     return mess;
   }
@@ -157,25 +163,23 @@ class FirestoreService {
     final data = inviteDoc.data()!;
     final messId = data['messId'] as String;
 
-    // Update invitation status
-    await _firestore
-        .collection(AppConstants.invitationsCollection)
-        .doc(inviteId)
-        .update({'status': 'accepted'});
-
-    // Add user to mess
-    await _firestore
-        .collection(AppConstants.messesCollection)
-        .doc(messId)
-        .update({
-          'memberIds': FieldValue.arrayUnion([userId]),
-        });
-
-    // Update user document
-    await _firestore
-        .collection(AppConstants.usersCollection)
-        .doc(userId)
-        .update({'messId': messId, 'role': AppConstants.roleMember});
+    // Rules require the invitation, membership, and private profile to agree
+    // in the same atomic commit. A standalone self-join is always denied.
+    final batch = _firestore.batch();
+    batch.update(inviteDoc.reference, {'status': 'accepted'});
+    batch.update(
+      _firestore.collection(AppConstants.messesCollection).doc(messId),
+      {
+        'memberIds': FieldValue.arrayUnion([userId]),
+      },
+    );
+    await _profiles.queueUpdate(batch, userId, {
+      'messId': messId,
+      'role': AppConstants.roleMember,
+      'roomId': null,
+      'membershipInvitationId': inviteId,
+    });
+    await batch.commit();
   }
 
   Future<void> declineInvitation(String inviteId) async {
@@ -240,10 +244,9 @@ class FirestoreService {
         });
 
     // Update user's roomId
-    await _firestore
-        .collection(AppConstants.usersCollection)
-        .doc(userId)
-        .update({'roomId': roomId});
+    final batch = _firestore.batch();
+    await _profiles.queueUpdate(batch, userId, {'roomId': roomId});
+    await batch.commit();
   }
 
   Future<void> unassignMemberFromRoom({
@@ -262,10 +265,9 @@ class FirestoreService {
         });
 
     // Clear user's roomId
-    await _firestore
-        .collection(AppConstants.usersCollection)
-        .doc(userId)
-        .update({'roomId': null});
+    final batch = _firestore.batch();
+    await _profiles.queueUpdate(batch, userId, {'roomId': null});
+    await batch.commit();
   }
 
   Future<void> setBazarSchedule({
@@ -343,10 +345,7 @@ class FirestoreService {
       });
     }
 
-    final userRef = _firestore
-        .collection(AppConstants.usersCollection)
-        .doc(userId);
-    batch.update(userRef, {
+    await _profiles.queueUpdate(batch, userId, {
       'messId': null,
       'roomId': null,
       'role': AppConstants.roleMember,
@@ -396,17 +395,16 @@ class FirestoreService {
     int operations = 0;
 
     for (final uid in userIds) {
-      final userRef = _firestore
-          .collection(AppConstants.usersCollection)
-          .doc(uid);
-      batch.update(userRef, {
+      await _profiles.queueUpdate(batch, uid, {
         'messId': null,
         'roomId': null,
         'role': AppConstants.roleMember,
       });
       operations++;
 
-      if (operations >= 450) {
+      // Each profile needs several rule document lookups. Keep these batches
+      // below Firestore's 20-access limit as well as its write limit.
+      if (operations >= 4) {
         await batch.commit();
         batch = _firestore.batch();
         operations = 0;

@@ -24,11 +24,11 @@ class AuthService {
       ).join();
 
       // Check uniqueness
-      final query = await _firestore
-          .collection(AppConstants.usersCollection)
-          .where('uniqueId', isEqualTo: id)
+      final code = await _firestore
+          .collection(AppConstants.inviteCodesCollection)
+          .doc(id)
           .get();
-      if (query.docs.isEmpty) return id;
+      if (!code.exists) return id;
     }
   }
 
@@ -57,10 +57,22 @@ class AuthService {
       email: email.trim(),
     );
 
-    await _firestore
-        .collection(AppConstants.usersCollection)
-        .doc(user.uid)
-        .set(userModel.toMap());
+    final batch = _firestore.batch();
+    batch.set(
+      _firestore.collection(AppConstants.usersCollection).doc(user.uid),
+      userModel.toMap(),
+    );
+    batch.set(
+      _firestore
+          .collection(AppConstants.memberProfilesCollection)
+          .doc(user.uid),
+      userModel.toMemberProfileMap(),
+    );
+    batch.set(
+      _firestore.collection(AppConstants.inviteCodesCollection).doc(uniqueId),
+      userModel.toInviteCodeMap(),
+    );
+    await batch.commit();
 
     return userModel;
   }

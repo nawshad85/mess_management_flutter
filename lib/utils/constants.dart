@@ -1,6 +1,8 @@
 class AppConstants {
   // Collection names
   static const String usersCollection = 'users';
+  static const String memberProfilesCollection = 'memberProfiles';
+  static const String inviteCodesCollection = 'inviteCodes';
   static const String messesCollection = 'messes';
   static const String roomsCollection = 'rooms';
   static const String bazarEntriesCollection = 'bazarEntries';

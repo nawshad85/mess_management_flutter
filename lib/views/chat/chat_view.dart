@@ -359,7 +359,7 @@ class _ChatViewState extends State<ChatView> {
                         ),
                       ),
                       Text(
-                        member.email,
+                        member.uniqueId,
                         style: const TextStyle(
                           color: AppTheme.textSecondary,
                           fontSize: 11,
