@@ -65,7 +65,7 @@ service cloud.firestore {
           'managerPinHash', 'managerPinSalt', 'createdAt'
         ])
         && request.resource.data.uid == uid
-        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.email.lower() == request.auth.token.email.lower()
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 100
@@ -82,9 +82,10 @@ service cloud.firestore {
         (owner(uid)
           && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['name', 'managerPinHash', 'managerPinSalt'])
-          && request.resource.data.name is string
-          && request.resource.data.name.size() > 0
-          && request.resource.data.name.size() <= 100
+          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['name'])
+            || (request.resource.data.name is string
+              && request.resource.data.name.size() > 0
+              && request.resource.data.name.size() <= 100))
           && validPin(request.resource.data, uid))
         || (owner(uid) && available(uid)
           && request.resource.data.diff(resource.data).affectedKeys()
@@ -196,7 +197,8 @@ service cloud.firestore {
         allow create: if member(messId)
           && request.resource.data.messageId == id
           && request.resource.data.senderId == request.auth.uid
-          && request.resource.data.senderName == get(userPath(request.auth.uid)).data.name
+          && request.resource.data.senderName == get(userPath(request.auth.uid)).data.get('name',
+            get(userPath(request.auth.uid)).data.get('username', ''))
           && request.resource.data.content is string
           && request.resource.data.content.size() <= 10000
           && request.resource.data.createdAt is timestamp

@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import { doc, collection, getDoc, getDocs, query, where, setDoc, updateDoc,
   deleteDoc, writeBatch, arrayUnion, arrayRemove, serverTimestamp, Timestamp,
-  setLogLevel } from 'firebase/firestore';
+  setLogLevel, deleteField } from 'firebase/firestore';
 
 setLogLevel('silent');
 let env;
@@ -96,6 +96,11 @@ test('registration cannot inject a manager role',async()=>{
   batch.set(doc(d,'users/newuser'),u);batch.set(doc(d,'memberProfiles/newuser'),profile(u));
   batch.set(doc(d,'inviteCodes',u.uniqueId),lookup(u));await assertFails(batch.commit());
 });
+test('registration preserves case-insensitive email identity',async()=>{
+  const d=db('newuser'),u={...user('newuser'),email:'NEWUSER@example.test'},batch=writeBatch(d);
+  batch.set(doc(d,'users/newuser'),u);batch.set(doc(d,'memberProfiles/newuser'),profile(u));
+  batch.set(doc(d,'inviteCodes',u.uniqueId),lookup(u));await assertSucceeds(batch.commit());
+});
 test('new registration cannot steal an existing invite code',async()=>{
   const d=db('newuser'),u={...user('newuser'),uniqueId:code('alice')},batch=writeBatch(d);
   batch.set(doc(d,'users/newuser'),u);batch.set(doc(d,'memberProfiles/newuser'),profile(u));
@@ -179,6 +184,14 @@ test('members can send a correctly attributed message',()=>assertSucceeds(setDoc
 test('members cannot impersonate another display name',()=>assertFails(setDoc(doc(db('bob'),'messes/alpha/messages/new'),{
   messageId:'new',senderId:'bob',senderName:'alice',content:'fake',mentions:[],readBy:{},isEdited:false,createdAt:Timestamp.now(),
 })));
+test('legacy username-only profiles retain PIN and chat functionality',async()=>{
+  await env.withSecurityRulesDisabled(c=>updateDoc(doc(c.firestore(),'users/alice'),{name:deleteField(),username:'alice'}));
+  const d=db('alice');
+  await assertSucceeds(updateDoc(doc(d,'users/alice'),{managerPinHash:'b'.repeat(64),managerPinSalt:'alice'}));
+  await assertSucceeds(setDoc(doc(d,'messes/alpha/messages/legacy'),{
+    messageId:'legacy',senderId:'alice',senderName:'alice',content:'hello',mentions:[],readBy:{},isEdited:false,createdAt:Timestamp.now(),
+  }));
+});
 test('only sender can edit message content',async()=>{
   await assertFails(updateDoc(doc(db('bob'),'messes/alpha/messages/msg'),{content:'fake',isEdited:true}));
   await assertSucceeds(updateDoc(doc(db('alice'),'messes/alpha/messages/msg'),{content:'edited',isEdited:true}));
