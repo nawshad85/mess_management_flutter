@@ -5,17 +5,17 @@ cd "$(dirname "$0")/.."
 
 readonly FLUTTER_VERSION='3.41.6'
 readonly FLUTTER_REVISION='db50e20168db8fee486b9abf32fc912de3bc5b6a'
-readonly FLUTTER_SDK_DIR="$PWD/.vercel/cache/flutter-$FLUTTER_VERSION"
+# Vercel strips Git metadata from cached SDKs, which breaks Flutter's version
+# checks. Use a fresh SDK checkout and cache only downloaded Pub packages.
+readonly FLUTTER_SDK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/messhub-flutter.XXXXXX")"
 
 export CI=true
 export FLUTTER_SUPPRESS_ANALYTICS=true
 export DART_SUPPRESS_ANALYTICS=true
+export PUB_CACHE="$PWD/.vercel/cache/pub"
 
-if [ ! -d "$FLUTTER_SDK_DIR/.git" ]; then
-  mkdir -p "$(dirname "$FLUTTER_SDK_DIR")"
-  git clone --depth 1 --branch "$FLUTTER_VERSION" \
-    https://github.com/flutter/flutter.git "$FLUTTER_SDK_DIR"
-fi
+git clone --depth 1 --branch "$FLUTTER_VERSION" \
+  https://github.com/flutter/flutter.git "$FLUTTER_SDK_DIR"
 
 if [ "$(git -C "$FLUTTER_SDK_DIR" rev-parse HEAD)" != "$FLUTTER_REVISION" ]; then
   echo 'Flutter SDK revision does not match the pinned version.' >&2
