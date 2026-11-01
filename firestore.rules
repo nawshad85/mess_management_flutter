@@ -133,7 +133,10 @@ service cloud.firestore {
     }
 
     match /messes/{messId} {
-      allow read: if member(messId);
+      // A deleted mess must produce a missing-document snapshot so the app can
+      // clear its current route. Existing mess contents remain member-only.
+      allow get: if signedIn() && (!exists(messPath(messId)) || member(messId));
+      allow list: if member(messId);
       allow create: if signedIn() && available(request.auth.uid)
         && request.resource.data.keys().hasOnly([
           'messId', 'name', 'managerId', 'memberIds', 'roomCount', 'createdAt'

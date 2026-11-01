@@ -110,6 +110,10 @@ for (const fields of [{role:'manager'},{messId:'beta',role:'manager'},{email:'ot
 }
 test('outsiders cannot read a mess',()=>assertFails(getDoc(doc(db('mallory'),'messes/alpha'))));
 test('mess members can read their mess',()=>assertSucceeds(getDoc(doc(db('bob'),'messes/alpha'))));
+test('a missing mess can be observed without exposing any existing mess',async()=>{
+  const snapshot=await assertSucceeds(getDoc(doc(db('eve'),'messes/deleted')));
+  assert.equal(snapshot.exists(),false);
+});
 test('outsider cannot add themselves to a mess',()=>assertFails(updateDoc(doc(db('mallory'),'messes/alpha'),{memberIds:arrayUnion('mallory')})));
 test('manager cannot bypass invitations to add an account',()=>assertFails(updateDoc(doc(db('alice'),'messes/alpha'),{memberIds:arrayUnion('mallory')})));
 test('member cannot replace the manager',()=>assertFails(updateDoc(doc(db('bob'),'messes/alpha'),{managerId:'bob'})));
