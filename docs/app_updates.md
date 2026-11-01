@@ -27,8 +27,8 @@ app:
 | Parameter | Type | Example | Purpose |
 | --- | --- | --- | --- |
 | `android_update_enabled` | Boolean | `true` | Master switch for update checks |
-| `android_latest_build` | Number | `3` | Latest Android build/version code; controls direct APK prompts |
-| `android_latest_version` | String | `1.0.2` | Version name shown in the prompt |
+| `android_latest_build` | Number | `4` | Latest Android build/version code; controls direct APK prompts |
+| `android_latest_version` | String | `1.0.3` | Version name shown in the prompt |
 | `android_update_title` | String | `Update available` | Prompt title |
 | `android_update_message` | String | `A faster version of MessHub is ready.` | Prompt body |
 | `android_apk_url` | String | `https://example.supabase.co/storage/v1/object/public/releases/messhub.apk` | Stable public HTTPS URL for the single ARM APK |
@@ -47,7 +47,7 @@ continues normally.
    update. Release builds load the ignored `android/key.properties` file and
    fail instead of falling back to debug signing when it is missing.
 2. Increase `version` in `pubspec.yaml` for each release. The current release
-   is `1.0.2+3`; a following release could be `1.0.3+4`. The number after `+`
+   is `1.0.3+4`; a following release could be `1.0.4+5`. The number after `+`
    is entered in `android_latest_build`.
 3. Build one signed APK containing both supported phone architectures:
 
@@ -69,7 +69,10 @@ continues normally.
 4. Upload
    `build/app/outputs/flutter-apk/app-direct-release.apk` to a stable public
    Supabase Storage URL. Replacing the object at the same URL is acceptable,
-   although versioned filenames make rollbacks easier.
+   although versioned filenames make rollbacks easier and avoid stale cached
+   downloads. For version `1.0.3+4`, use `messhub-1.0.3-build4.apk` in the
+   existing `mess-manager-app` bucket. Publish its URL and matching checksum
+   only after the uploaded APK has been downloaded and verified.
 5. Calculate its checksum:
 
    ```powershell
@@ -109,9 +112,9 @@ internal testing track or Internal App Sharing.
 
 ## Quick test before publishing
 
-1. Install an older single ARM direct APK, such as build `2`.
-2. Host a same-ID, same-signature single ARM APK with build `3`.
-3. Publish Remote Config with `android_latest_build = 3` and the hosted APK
+1. Install an older single ARM direct APK, such as build `3`.
+2. Host a same-ID, same-signature single ARM APK with build `4`.
+3. Publish Remote Config with `android_latest_build = 4` and the hosted APK
    details.
 4. Fully close and reopen the old app.
 5. Verify No dismisses the prompt and that reopening shows it again.
