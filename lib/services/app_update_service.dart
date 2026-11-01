@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show appFlavor;
@@ -34,7 +32,7 @@ class AppUpdateService {
   play.AppUpdateInfo? _playUpdateInfo;
 
   Future<AvailableAppUpdate?> checkForUpdate() async {
-    if (!Platform.isAndroid) return null;
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return null;
 
     final packageInfo = await PackageInfo.fromPlatform();
     final installedBuild = int.tryParse(packageInfo.buildNumber) ?? 0;

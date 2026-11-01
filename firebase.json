@@ -1,5 +1,25 @@
 {
   "firestore": {
     "rules": "firestore.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "fluid-cosmos-467914-b1",
+          "appId": "1:217643372491:android:6443f4db356e79a127304e",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "fluid-cosmos-467914-b1",
+          "configurations": {
+            "android": "1:217643372491:android:6443f4db356e79a127304e",
+            "web": "1:217643372491:web:571abb8c90d4a2a327304e"
+          }
+        }
+      }
+    }
   }
 }

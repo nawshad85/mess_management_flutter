@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:mess_manager/utils/secrets.dart';
@@ -16,6 +17,7 @@ class OneSignalService {
 
   /// Initialize OneSignal SDK.
   void initialize() {
+    if (kIsWeb) return;
     OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
     OneSignal.initialize(_appId);
     OneSignal.Notifications.requestPermission(true);
@@ -23,6 +25,7 @@ class OneSignalService {
 
   /// Tag the current device with user info so we can target notifications.
   void setUserTags({required String uid, String? messId}) {
+    if (kIsWeb) return;
     OneSignal.login(uid);
     final tags = <String, String>{'uid': uid};
     if (messId != null && messId.isNotEmpty) {
@@ -33,11 +36,13 @@ class OneSignalService {
 
   /// Update the messId tag (e.g. after joining/creating a mess).
   void updateMessTag(String messId) {
+    if (kIsWeb) return;
     OneSignal.User.addTags({'messId': messId});
   }
 
   /// Remove tags and logout from OneSignal (on app logout).
   void removeUserTags() {
+    if (kIsWeb) return;
     OneSignal.User.removeTags(['uid', 'messId']);
     OneSignal.logout();
   }
@@ -50,6 +55,8 @@ class OneSignalService {
     required String messId,
     List<String> mentions = const [],
   }) async {
+    // Web push requires a separate OneSignal Web SDK/backend integration.
+    if (kIsWeb) return;
     try {
       final url = Uri.parse('https://api.onesignal.com/notifications');
 
@@ -58,12 +65,7 @@ class OneSignalService {
         'filters': [
           {'field': 'tag', 'key': 'messId', 'relation': '=', 'value': messId},
           {'operator': 'AND'},
-          {
-            'field': 'tag',
-            'key': 'uid',
-            'relation': '!=',
-            'value': senderId,
-          },
+          {'field': 'tag', 'key': 'uid', 'relation': '!=', 'value': senderId},
         ],
         'headings': {'en': senderName},
         'contents': {'en': content},

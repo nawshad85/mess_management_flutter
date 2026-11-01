@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
@@ -13,6 +14,8 @@ class NotificationService {
   bool _initialized = false;
 
   Future<void> initialize() async {
+    // The native notification plugin has no Web implementation.
+    if (kIsWeb) return;
     if (_initialized) return;
 
     const androidSettings = AndroidInitializationSettings(
