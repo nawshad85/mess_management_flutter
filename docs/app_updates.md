@@ -47,7 +47,7 @@ continues normally.
    update. Release builds load the ignored `android/key.properties` file and
    fail instead of falling back to debug signing when it is missing.
 2. Increase `version` in `pubspec.yaml` for each release. The current release
-   is `1.0.5+6`; a following release could be `1.0.6+7`. The number after `+`
+   is `1.0.6+7`; a following release could be `1.0.7+8`. The number after `+`
    is entered in `android_latest_build`.
 3. Build one signed APK containing both supported phone architectures:
 
@@ -72,7 +72,7 @@ continues normally.
    `build/app/outputs/flutter-apk/app-direct-release.apk` to a stable public
    Supabase Storage URL. Replacing the object at the same URL is acceptable,
    although versioned filenames make rollbacks easier and avoid stale cached
-   downloads. For version `1.0.5+6`, use `messhub-1.0.5-build6.apk` in the
+   downloads. For version `1.0.6+7`, use `messhub-1.0.6-build7.apk` in the
    existing `mess-manager-app` bucket. Publish its URL and matching checksum
    only after the uploaded APK has been downloaded and verified.
 5. Calculate its checksum:

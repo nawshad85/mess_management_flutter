@@ -4,6 +4,7 @@ import 'package:mess_manager/controllers/auth_controller.dart';
 import 'package:mess_manager/utils/validators.dart';
 import 'package:mess_manager/app/routes/app_routes.dart';
 import 'package:mess_manager/app/theme/app_theme.dart';
+import 'package:mess_manager/views/auth/widgets/password_form_field.dart';
 
 class RegisterView extends StatelessWidget {
   const RegisterView({super.key});
@@ -96,35 +97,20 @@ class RegisterView extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      TextFormField(
+                      PasswordFormField(
                         controller: passwordController,
-                        obscureText: true,
                         validator: Validators.validatePassword,
-                        decoration: const InputDecoration(
-                          hintText: 'Password',
-                          prefixIcon: Icon(
-                            Icons.lock_outlined,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
                       ),
                       const SizedBox(height: 16),
-                      TextFormField(
+                      PasswordFormField(
                         controller: confirmPasswordController,
-                        obscureText: true,
+                        hintText: 'Confirm Password',
                         validator: (val) {
                           if (val != passwordController.text) {
                             return 'Passwords do not match';
                           }
                           return null;
                         },
-                        decoration: const InputDecoration(
-                          hintText: 'Confirm Password',
-                          prefixIcon: Icon(
-                            Icons.lock_outlined,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
                       ),
                       const SizedBox(height: 8),
 
@@ -164,7 +150,9 @@ class RegisterView extends StatelessWidget {
                                             name: nameController.text,
                                           );
                                       if (success) {
-                                        Get.offAllNamed(AppRoutes.emailVerification);
+                                        Get.offAllNamed(
+                                          AppRoutes.emailVerification,
+                                        );
                                       }
                                     }
                                   },

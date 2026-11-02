@@ -4,6 +4,7 @@ import 'package:mess_manager/controllers/auth_controller.dart';
 import 'package:mess_manager/utils/validators.dart';
 import 'package:mess_manager/app/routes/app_routes.dart';
 import 'package:mess_manager/app/theme/app_theme.dart';
+import 'package:mess_manager/views/auth/widgets/password_form_field.dart';
 
 class LoginView extends StatelessWidget {
   const LoginView({super.key});
@@ -82,17 +83,9 @@ class LoginView extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      TextFormField(
+                      PasswordFormField(
                         controller: passwordController,
-                        obscureText: true,
                         validator: Validators.validatePassword,
-                        decoration: const InputDecoration(
-                          hintText: 'Password',
-                          prefixIcon: Icon(
-                            Icons.lock_outlined,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
                       ),
                       const SizedBox(height: 8),
 
