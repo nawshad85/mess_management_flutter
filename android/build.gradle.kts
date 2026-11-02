@@ -1,3 +1,8 @@
+// Auth 23.2.1 (the FlutterFire 3.x default) loses sessions after Android
+// backup restore. BoM 34.1.0 includes the fixed Auth 24.0.1 SDK.
+// https://firebase.google.com/support/release-notes/android#auth_v24-0-0
+extra["FlutterFire"] = mapOf("FirebaseSDKVersion" to "34.1.0")
+
 allprojects {
     repositories {
         google()

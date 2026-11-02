@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Firebase Auth encrypts preferences with a device-bound Keystore key.
+         Restoring those preferences without that key can break every login. -->
+    <exclude domain="sharedpref" path="." />
+</full-backup-content>

@@ -47,12 +47,13 @@ continues normally.
    update. Release builds load the ignored `android/key.properties` file and
    fail instead of falling back to debug signing when it is missing.
 2. Increase `version` in `pubspec.yaml` for each release. The current release
-   is `1.0.4+5`; a following release could be `1.0.5+6`. The number after `+`
+   is `1.0.5+6`; a following release could be `1.0.6+7`. The number after `+`
    is entered in `android_latest_build`.
 3. Build one signed APK containing both supported phone architectures:
 
    ```powershell
    flutter build apk --flavor direct --release --target-platform="android-arm,android-arm64"
+   ./scripts/verify-android-release.ps1
    ```
 
    This produces one APK containing:
@@ -60,7 +61,8 @@ continues normally.
    - `android-arm` / `armeabi-v7a` for 32-bit ARM phones.
    - `android-arm64` / `arm64-v8a` for 64-bit ARM phones.
 
-   It excludes x86-64, which is primarily used by emulators. For the current
+   It excludes the x86-64 Flutter engine, which is primarily used by emulators. A
+   dependency may still include a small x86-64 helper library. For the current
    app, that removes about 18 MiB and keeps the upload below Supabase's 50 MB
    Free-plan limit. Do not add `--split-per-abi`; the required output is still
    one APK. An x86-64 emulator cannot install this release APK, but normal
@@ -70,7 +72,7 @@ continues normally.
    `build/app/outputs/flutter-apk/app-direct-release.apk` to a stable public
    Supabase Storage URL. Replacing the object at the same URL is acceptable,
    although versioned filenames make rollbacks easier and avoid stale cached
-   downloads. For version `1.0.4+5`, use `messhub-1.0.4-build5.apk` in the
+   downloads. For version `1.0.5+6`, use `messhub-1.0.5-build6.apk` in the
    existing `mess-manager-app` bucket. Publish its URL and matching checksum
    only after the uploaded APK has been downloaded and verified.
 5. Calculate its checksum:
